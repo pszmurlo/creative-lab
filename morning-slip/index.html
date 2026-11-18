@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Morning Slip</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: options on the left, the receipt preview on the right; printing shows only the receipt */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 40px;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 420px); align-items: start; }
+  @media (max-width: 820px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  h1 { font: 400 clamp(56px, 9vw, 112px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); margin: 0 0 24px; max-width: 52ch; }
+  form, fieldset { display: grid; gap: 8px; margin: 0 0 18px; border: 0; padding: 0; }
+  label, legend { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input[type=search], select { flex: 1; min-width: 0; font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; }
+  .checks label { display: flex; gap: 8px; align-items: center; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 14px; }
+  .checks input { accent-color: var(--acc); width: 18px; height: 18px; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .status { min-height: 1.5em; color: var(--dim); font-size: 12px; }
+  .status.err { color: var(--acc); }
+  .note { color: var(--dim); font-size: 12px; }
+  .slip { position: sticky; top: 16px; display: grid; justify-items: center; }
+  .slip img { display: block; width: 100%; max-width: 384px; height: auto; image-rendering: pixelated; background: #fff;
+              box-shadow: 0 18px 30px -18px rgb(0 0 0 / .55); filter: drop-shadow(0 1px 0 rgb(0 0 0 / .15)); }
+  /* Touch baseline (same as the other pages) */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a { touch-action: manipulation; }
+  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  @media (pointer: coarse) { input, select { font-size: 16px !important; } button { min-block-size: 44px; } }
+  @media print {
+    body { background: #fff; }
+    .wrap { display: block; padding: 0; }
+    .wrap > div:first-child { display: none; }
+    .slip { position: static; display: block; }
+    .slip img { box-shadow: none; filter: none; max-width: none; width: var(--print-w); }
+  }
+</style>
+<style id="pagesize"></style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <a class="back" href="../">← Creative Lab</a>
+    <h1>Morning<br>slip<span>.</span></h1>
+    <p class="lede">A receipt for the day: weather, your Tap Log streaks, today's shared hour with friends and a prompt to make something. Drawn in pure black and white at thermal-printer width.</p>
+
+    <form id="search">
+      <label for="q">Weather for</label>
+      <div class="row">
+        <input id="q" type="search" placeholder="City" autocomplete="off" required>
+        <button type="submit">Set</button>
+        <button type="button" id="geo">Use my location</button>
+      </div>
+    </form>
+    <fieldset>
+      <legend>Paper</legend>
+      <select id="paper" aria-label="Paper width">
+        <option value="58">58 mm (384 dots)</option>
+        <option value="80">80 mm (576 dots)</option>
+      </select>
+    </fieldset>
+    <fieldset class="checks">
+      <legend>On the slip</legend>
+      <label><input type="checkbox" data-s="weather" checked> Weather</label>
+      <label><input type="checkbox" data-s="habits" checked> Tap Log streaks</label>
+      <label><input type="checkbox" data-s="shared" checked> Shared hour</label>
+      <label><input type="checkbox" data-s="prompt" checked> Prompt of the day</label>
+    </fieldset>
+    <div class="row">
+      <button type="button" class="primary" id="print">Print</button>
+      <button type="button" id="png">Save PNG</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+    <p class="note">Most USB and Bluetooth receipt printers show up as normal printers: Print sends the slip at true width. For printers driven by a phone app, save the PNG; it's already 1-bit at the printer's 203 dpi. Streaks and the shared hour come from <a href="../tap/">Tap Log</a> and <a href="../shared-hour/">Shared Hour</a> in this browser. Weather by <a href="https://open-meteo.com">Open-Meteo</a>.</p>
+  </div>
+  <div class="slip"><img id="out" alt=""></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const cfg = Object.assign({ paper: 58, place: null, sections: { weather: true, habits: true, shared: true, prompt: true } }, store.get('morning-slip', {}));
+const save = () => store.set('morning-slip', cfg);
+const status = (m, err) => { $('status').textContent = m; $('status').className = 'status' + (err ? ' err' : ''); };
+
+/* ---------- Data ---------- */
+const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const pad2 = n => String(n).padStart(2, '0');
+const hhmm = m => `${pad2(Math.floor(((m % 1440) + 1440) % 1440 / 60))}:${pad2(((m % 60) + 60) % 60)}`;
+
+async function weather(p) {
+  const u = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset&hourly=temperature_2m&timezone=auto&forecast_days=1`;
+  const j = await (await fetch(u)).json();
+  if (!j.daily) throw new Error(j.reason || 'no forecast');
+  return { min: j.daily.temperature_2m_min[0], max: j.daily.temperature_2m_max[0], rain: j.daily.precipitation_probability_max[0], code: j.daily.weather_code[0],
+           rise: j.daily.sunrise[0].slice(11), set: j.daily.sunset[0].slice(11), hourly: j.hourly.temperature_2m };
+}
+// WMO weather codes -> words and an icon kind
+function sky(code) {
+  if (code === 0) return ['Clear', 'sun']; if (code <= 2) return ['Partly cloudy', 'part']; if (code === 3) return ['Overcast', 'cloud'];
+  if (code <= 48) return ['Fog', 'fog']; if (code <= 57) return ['Drizzle', 'rain']; if (code <= 67) return ['Rain', 'rain'];
+  if (code <= 77) return ['Snow', 'snow']; if (code <= 82) return ['Showers', 'rain']; if (code <= 86) return ['Snow showers', 'snow'];
+  return ['Thunderstorm', 'storm'];
+}
+function habits() {
+  const log = store.get('tap-log', []), tags = store.get('tap-tags', {});
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Object.entries(tags).map(([slug, t]) => {
+    const days = new Set(log.filter(x => x.t === slug).map(x => dayKey(new Date(x.ts))));
+    const week = Array.from({ length: 7 }, (_, i) => { const d = new Date(today); d.setDate(d.getDate() - 6 + i); return days.has(dayKey(d)); });
+    let streak = 0; const d = new Date(today); if (!days.has(dayKey(d))) d.setDate(d.getDate() - 1);
+    while (days.has(dayKey(d))) { streak++; d.setDate(d.getDate() - 1); }
+    return { name: t.n, week, streak };
+  });
+}
+// Same rule as Shared Hour: minutes of your day when everyone is awake
+function sharedWindows() {
+  const people = store.get('shared-hour', []);
+  if (people.length < 2) return null;
+  const offset = zone => { const at = new Date(), p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).formatToParts(at).map(x => [x.type, x.value])); return Math.round((Date.UTC(+p.year, p.month - 1, +p.day, +p.hour, +p.minute) - Math.floor(at.getTime() / 60000) * 60000) / 60000); };
+  const me = offset(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const awake = (p, m) => { const h = ((m % 1440) + 1440) % 1440 / 60; return p.s > p.w ? h >= p.w && h < p.s : h >= p.w || h < p.s; };
+  const rel = people.map(p => { try { return offset(p.z) - me; } catch { return 0; } });
+  const all = Array.from({ length: 1440 }, (_, m) => people.every((p, i) => awake(p, m + rel[i])));
+  const out = []; let s = -1;
+  for (let m = 0; m <= 1440; m++) { const on = m < 1440 && all[m]; if (on && s < 0) s = m; else if (!on && s >= 0) { out.push([s, m]); s = -1; } }
+  if (out.length > 1 && out[0][0] === 0 && out.at(-1)[1] === 1440) { const f = out.shift(); out.at(-1)[1] = 1440 + f[1]; }
+  return { names: people.map(p => p.n), windows: out };
+}
+// Original prompts, one per day
+const PROMPTS = [
+  'Draw your street from memory, then check it on a map.', 'Make a poster using only the letters in your name.', 'Photograph ten things that are the same red.',
+  'Write a six-word story about your commute.', 'Build something that fits in a matchbox.', 'Sketch the view from your window in one continuous line.',
+  'Record thirty seconds of the quietest place you pass.', 'Design a stamp for your neighbourhood.', 'Turn today\'s weather into a pattern.',
+  'Make a map of your desk.', 'Rename every colour in a photo you took.', 'Collect five textures and make a rubbing of each.',
+  'Write the instructions for something you do without thinking.', 'Make a loader animation that feels like waiting for coffee.',
+  'Draw a building as if it were a face.', 'Cut a shape from paper and photograph its shadow at three times of day.',
+  'Compose a tune from the numbers on a receipt.', 'Make a tiny zine with a single sheet of paper.', 'Draw something using only circles.',
+  'Find a typeface in the wild and copy one letter by hand.', 'Make a self-portrait from objects in your bag.', 'Plan a walk shaped like a letter.',
+  'Make the ugliest possible logo, then fix one thing.', 'Draw your day as a timeline of colours.', 'Write a postcard to your street from the future.',
+  'Arrange your books by colour and photograph the gradient.', 'Make a one-minute film with no people in it.', 'Invent a symbol for a feeling that has no word.',
+  'Draw a floor plan of a place you lived as a child.', 'Make an ASCII portrait of someone you love.', 'Fold a paper plane, then design its airline.',
+  'Photograph a stranger\'s handwriting on a public sign.', 'Make a pattern from today\'s calendar.', 'Build a tiny scene from brick-sized objects.',
+  'Draw the same object with your other hand.', 'Make a playlist titled by the street you\'re on.', 'Describe a colour to someone who\'s never seen it.',
+  'Design a ticket for an event that will never happen.', 'Draw the sky every hour you\'re awake.', 'Make something you would hang on a fridge.',
+];
+const promptFor = d => PROMPTS[(Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5) * 7) % PROMPTS.length];
+
+/* ---------- Drawing the receipt (canvas, then 1-bit) ---------- */
+function draw(data) {
+  const W = cfg.paper == 80 ? 576 : 384, M = Math.round(W * .05), k = W / 384;
+  const c = document.createElement('canvas'); c.width = W; c.height = 4000;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, c.height); x.fillStyle = '#000'; x.strokeStyle = '#000';
+  let y = M;
+  const font = (sz, fam = 'Space Mono', wt = 400) => x.font = `${wt} ${Math.round(sz * k)}px "${fam}"`;
+  const text = (t, sz, opts = {}) => {
+    font(sz, opts.fam, opts.wt); x.textAlign = opts.align || 'left'; x.textBaseline = 'alphabetic';
+    const tx = opts.align === 'center' ? W / 2 : opts.align === 'right' ? W - M : M;
+    y += sz * k * (opts.lh || 1.25); x.fillText(t, tx, y); x.textAlign = 'left';
+  };
+  const wrap = (t, sz) => { font(sz); const words = t.split(' '); let line = ''; for (const w of words) { if (x.measureText(line + w).width > W - 2 * M && line) { text(line.trim(), sz); line = ''; } line += w + ' '; } if (line.trim()) text(line.trim(), sz); };
+  const rule = (dash = true) => { y += 14 * k; x.lineWidth = 2 * k; x.setLineDash(dash ? [6 * k, 5 * k] : []); x.beginPath(); x.moveTo(M, y); x.lineTo(W - M, y); x.stroke(); x.setLineDash([]); y += 6 * k; };
+  const fitBig = (t, max, fam = 'Anton') => { let sz = max; font(sz, fam); while (x.measureText(t).width > W - 2 * M && sz > 20) font(--sz, fam); return sz; };
+
+  // Header
+  const now = new Date(), lang = navigator.language || 'en-GB';
+  text('MORNING SLIP', 15, { align: 'center', wt: 700 });
+  const wd = new Intl.DateTimeFormat(lang, { weekday: 'long' }).format(now).toUpperCase();
+  text(wd, fitBig(wd, 74), { fam: 'Anton', align: 'center', lh: 1.05 });
+  text(new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'long', year: 'numeric' }).format(now).toUpperCase(), 17, { align: 'center', wt: 700 });
+  const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5), len = new Date(now.getFullYear(), 1, 29).getDate() === 29 ? 366 : 365;
+  y += 12 * k; x.lineWidth = 2 * k; x.strokeRect(M, y, W - 2 * M, 16 * k); x.fillRect(M, y, (W - 2 * M) * doy / len, 16 * k); y += 16 * k;
+  text(`DAY ${doy} OF ${len} · ${Math.round(100 * doy / len)}% OF THE YEAR`, 13, { align: 'center' });
+
+  // Weather
+  if (cfg.sections.weather) {
+    rule();
+    if (data.weather) {
+      const w = data.weather, [desc, icon] = sky(w.code);
+      text((cfg.place?.name || '').toUpperCase(), 15, { wt: 700 });
+      const top = y + 8 * k, iconS = 86 * k;
+      drawIcon(x, icon, W - M - iconS, top, iconS, k);
+      y = top; text(`${Math.round(w.min)}°/${Math.round(w.max)}°`, 64, { fam: 'Anton', lh: 1 });
+      text(desc.toUpperCase(), 17, { wt: 700 });
+      text(`RAIN ${w.rain ?? 0}%  ·  ↑${w.rise}  ↓${w.set}`, 14);
+      y = Math.max(y, top + iconS) + 10 * k;
+      // Hourly temperature from 06 to 23
+      const hs = w.hourly.slice(6, 24), lo = Math.min(...hs), hi = Math.max(...hs), gh = 70 * k, gx = M, gw = W - 2 * M;
+      x.lineWidth = 3 * k; x.beginPath();
+      hs.forEach((t, i) => { const px = gx + gw * i / (hs.length - 1), py = y + gh - (hi === lo ? .5 : (t - lo) / (hi - lo)) * gh; i ? x.lineTo(px, py) : x.moveTo(px, py); });
+      x.stroke(); y += gh + 4 * k;
+      font(12); [6, 12, 18, 23].forEach(h => { const px = gx + gw * (h - 6) / 17; x.textAlign = h === 6 ? 'left' : h === 23 ? 'right' : 'center'; x.fillText(pad2(h), px, y + 14 * k); });
+      x.textAlign = 'left'; y += 18 * k;
+    } else text(data.weatherErr || 'Set a city for the weather.', 14);
+  }
+
+  // Habits
+  if (cfg.sections.habits) {
+    rule(); text('STREAKS', 15, { wt: 700 });
+    if (!data.habits.length) wrap('Make stickers in Tap Log and your streaks show up here.', 14);
+    for (const h of data.habits) {
+      y += 6 * k; font(16, 'Space Mono', 700);
+      const name = h.name.toUpperCase().slice(0, cfg.paper == 80 ? 22 : 14);
+      y += 20 * k; x.fillText(name, M, y);
+      const box = 16 * k, gap = 5 * k, bx = W - M - 7 * box - 6 * gap;
+      h.week.forEach((on, i) => { const px = bx + i * (box + gap); x.lineWidth = 2 * k; if (on) x.fillRect(px, y - box + 2 * k, box, box); else x.strokeRect(px, y - box + 2 * k, box, box); });
+      text(h.streak ? `${h.streak}-day streak` : 'start again today', 13);
+    }
+  }
+
+  // Shared hour
+  if (cfg.sections.shared) {
+    rule(); text('SHARED HOUR', 15, { wt: 700 });
+    const s = data.shared;
+    if (!s) wrap('Add friends in Shared Hour to see when you\'re all awake.', 14);
+    else if (!s.windows.length) wrap(`No hour today when ${s.names.join(', ')} are all awake.`, 14);
+    else {
+      text(s.windows.map(([a, b]) => `${hhmm(a)}–${hhmm(b)}`).join('  '), 34, { fam: 'Anton', lh: 1.1 });
+      wrap(`Everyone awake: ${s.names.join(', ')}.`, 14);
+    }
+  }
+
+  // Prompt
+  if (cfg.sections.prompt) { rule(); text('MAKE SOMETHING', 15, { wt: 700 }); y += 4 * k; wrap(promptFor(now), 17); }
+
+  rule(false); text(`creative lab · ${hhmm(now.getHours() * 60 + now.getMinutes())}`, 12, { align: 'center' });
+  y += M;
+
+  // Crop and convert to pure black and white
+  const out = document.createElement('canvas'); out.width = W; out.height = Math.ceil(y);
+  const o = out.getContext('2d'); o.drawImage(c, 0, 0);
+  const img = o.getImageData(0, 0, W, out.height), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const v = (d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114) < 150 ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+  o.putImageData(img, 0, 0);
+  return out;
+}
+function drawIcon(x, kind, ox, oy, s, k) {
+  x.save(); x.translate(ox, oy); x.lineWidth = 4 * k; x.lineCap = 'round'; x.lineJoin = 'round';
+  const sun = (cx, cy, r) => { x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.stroke(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; x.beginPath(); x.moveTo(cx + Math.cos(a) * r * 1.45, cy + Math.sin(a) * r * 1.45); x.lineTo(cx + Math.cos(a) * r * 1.85, cy + Math.sin(a) * r * 1.85); x.stroke(); } };
+  const cloud = (cy) => { x.beginPath(); x.moveTo(s * .2, cy); x.arc(s * .3, cy - s * .1, s * .12, Math.PI * .5, Math.PI * 1.5); x.arc(s * .5, cy - s * .2, s * .18, Math.PI, 0); x.arc(s * .72, cy - s * .08, s * .12, Math.PI * 1.5, Math.PI * .5); x.closePath(); x.fillStyle = '#fff'; x.fill(); x.stroke(); x.fillStyle = '#000'; };
+  if (kind === 'sun') sun(s / 2, s / 2, s * .2);
+  if (kind === 'part') { sun(s * .62, s * .32, s * .13); cloud(s * .72); }
+  if (kind === 'cloud' || kind === 'rain' || kind === 'snow' || kind === 'storm') cloud(s * .55);
+  if (kind === 'rain') for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(s * (.32 + i * .16), s * .66); x.lineTo(s * (.28 + i * .16), s * .84); x.stroke(); }
+  if (kind === 'snow') for (let i = 0; i < 3; i++) { x.font = `700 ${Math.round(s * .2)}px "Space Mono"`; x.fillText('*', s * (.26 + i * .17), s * .9); }
+  if (kind === 'storm') { x.beginPath(); x.moveTo(s * .52, s * .6); x.lineTo(s * .42, s * .78); x.lineTo(s * .54, s * .78); x.lineTo(s * .44, s * .96); x.stroke(); }
+  if (kind === 'fog') for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(s * (.15 + (i % 2) * .08), s * (.3 + i * .14)); x.lineTo(s * (.85 - (i % 2) * .08), s * (.3 + i * .14)); x.stroke(); }
+  x.restore();
+}
+
+/* ---------- Page ---------- */
+let canvas = null;
+async function render() {
+  const data = { habits: habits(), shared: sharedWindows(), weather: null, weatherErr: '' };
+  if (cfg.sections.weather && cfg.place) {
+    try { data.weather = await weather(cfg.place); } catch (e) { data.weatherErr = `Weather unavailable (${e.message}).`; }
+  }
+  await document.fonts.load('400 40px "Anton"'); await document.fonts.load('700 16px "Space Mono"'); await document.fonts.load('400 16px "Space Mono"');
+  canvas = draw(data);
+  $('out').src = canvas.toDataURL('image/png');
+  $('out').alt = `Receipt for ${new Date().toDateString()}${data.weather ? `, ${Math.round(data.weather.min)} to ${Math.round(data.weather.max)} degrees in ${cfg.place.name}` : ''}, ${data.habits.length} habits.`;
+  const mm = cfg.paper == 80 ? 72 : 48; // printable width
+  document.documentElement.style.setProperty('--print-w', mm + 'mm');
+  $('pagesize').textContent = `@page { size: ${cfg.paper}mm ${Math.ceil(canvas.height / canvas.width * mm) + 10}mm; margin: 0 ${(cfg.paper - mm) / 2}mm; }`;
+}
+async function setPlace(q) {
+  status(`Looking up ${q}…`);
+  const j = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`)).json();
+  const h = j.results?.[0]; if (!h) { status(`Couldn't find “${q}”.`, true); return false; }
+  cfg.place = { name: h.name, lat: h.latitude, lon: h.longitude }; save(); status(`Weather for ${h.name}, ${h.country || ''}.`); return true;
+}
+$('search').addEventListener('submit', async e => { e.preventDefault(); if (await setPlace($('q').value.trim())) render(); });
+$('geo').onclick = () => {
+  if (!navigator.geolocation) return status('This browser has no location access.', true);
+  status('Asking for your location…');
+  navigator.geolocation.getCurrentPosition(p => { cfg.place = { name: 'Here', lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2) }; save(); status('Using your location (rounded to ~1 km).'); render(); },
+    e => status(`No location: ${e.message}`, true), { timeout: 10000 });
+};
+$('paper').value = cfg.paper; $('paper').onchange = e => { cfg.paper = +e.target.value; save(); render(); };
+document.querySelectorAll('[data-s]').forEach(cb => { cb.checked = cfg.sections[cb.dataset.s] !== false; cb.onchange = () => { cfg.sections[cb.dataset.s] = cb.checked; save(); render(); }; });
+$('print').onclick = () => print();
+$('png').onclick = () => canvas.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `morning-slip-${dayKey(new Date())}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+
+(async () => {
+  // First visit: guess the city from the browser's time zone (Europe/Warsaw -> Warsaw); nothing is sent until then
+  if (!cfg.place) { const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' '); if (city && city !== 'UTC') await setPlace(city).catch(() => {}); }
+  if (cfg.place) $('q').value = cfg.place.name === 'Here' ? '' : cfg.place.name;
+  await render();
+})();
+</script>
+</body>
+</html>
