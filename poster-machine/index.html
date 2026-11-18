@@ -55,6 +55,15 @@
   .wall figcaption { margin-top: 6px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: min(1100px, 96vw); width: 100%; }
   dialog::backdrop { background: rgba(10,10,10,.75); }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+  dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @media (prefers-reduced-motion: no-preference) {
+    dialog { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+    dialog:not([open]) { scale: .96; }
+    @starting-style { dialog[open] { scale: .96; } }
+  }
   .lb { display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
   .lb canvas { width: 100%; height: auto; display: block; max-height: 86vh; object-fit: contain; background: #000; }
   .lb aside { padding: 20px; display: flex; flex-direction: column; gap: 10px; border-left: 3px solid var(--line); }

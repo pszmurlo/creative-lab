@@ -50,6 +50,15 @@
   dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 3px solid var(--line);
            background: var(--bg); color: var(--fg); overscroll-behavior: contain; }
   dialog::backdrop { background: rgb(0 0 0 / .6); overflow: hidden; overscroll-behavior: contain; }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+  dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @media (prefers-reduced-motion: no-preference) {
+    dialog { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+    dialog:not([open]) { scale: .96; }
+    @starting-style { dialog[open] { scale: .96; } }
+  }
   .dlg { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
   .big { display: grid; place-items: center; min-height: 360px; background: var(--tile); border-right: 3px solid var(--line); overflow: hidden; }
   .big > div { scale: 1.6; }
