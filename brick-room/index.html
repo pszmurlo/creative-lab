@@ -211,7 +211,7 @@ function loadModel(i) {
   steps = [...new Set(m.bricks.map(b => b.z))].sort((a, b) => a - b);
   state.step = 1; state.all = true;
   $('step').max = steps.length;
-  $('mnote').textContent = `${m.note} Build it on a 32 × 32 baseplate (not in the list).`;
+  $('mnote').textContent = `${m.note} Build it on a ${m.base || '32 × 32'} baseplate (not in the list).`;
   $('totalcount').textContent = `· ${m.bricks.length} parts`;
   renderParts($('allparts'), m.bricks);
   update();
