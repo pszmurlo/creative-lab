@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07090a">
 <title>ASCII Mirror</title>
 <style>
   /* Layout: full-bleed phosphor screen, one floating control strip at the bottom */
@@ -26,12 +27,13 @@
     padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
     backdrop-filter: blur(8px); transition: opacity .3s;
   }
-  .bar.idle { opacity: 0; }
-  .bar:hover, .bar:focus-within { opacity: 1; }
+  .bar.idle { opacity: 0; pointer-events: none; }
+  .bar:focus-within { opacity: 1; pointer-events: auto; }
+  @media (hover: hover) and (pointer: fine) { .bar:hover { opacity: 1; } }
   label { display: flex; gap: 6px; align-items: center; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
   select, button, input[type=range] { font: inherit; color: var(--fg); }
   select, button { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
-  button:hover, select:hover { border-color: var(--accent); color: var(--accent); }
+  @media (hover: hover) and (pointer: fine) { button:hover, select:hover { border-color: var(--accent); color: var(--accent); } }
   button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   input[type=range] { accent-color: var(--accent); width: 90px; }
@@ -39,6 +41,18 @@
   .status b { color: var(--accent); font-weight: normal; }
   .toast { position: fixed; top: 14px; right: 16px; color: var(--accent); font-size: 12px; opacity: 0; transition: opacity .3s; }
   .toast.show { opacity: 1; }
+
+  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, .btn, summary { touch-action: manipulation; }
+  button, .btn, summary { -webkit-user-select: none; user-select: none; }
+  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active, .btn:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+  @media (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
+    button, .btn { min-block-size: 44px; }
+  }
 </style>
 </head>
 <body>
@@ -219,10 +233,13 @@ $('copy').onclick = async () => {
 };
 addEventListener('keydown', e => {
   if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
   const map = { ' ': 'freeze', i: 'invert', m: 'flip', s: 'snap', c: 'copy' };
   const id = map[e.key.toLowerCase()]; if (id) { e.preventDefault(); $(id).click(); }
 });
-let idleT; addEventListener('pointermove', () => { $('bar').classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => $('bar').classList.add('idle'), 3000); });
+// Wake the bar on any pointer activity; a touch tap fires pointerdown but no pointermove
+let idleT; const wake = () => { $('bar').classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => $('bar').classList.add('idle'), 3000); };
+['pointermove', 'pointerdown'].forEach(t => addEventListener(t, wake));
 addEventListener('resize', resize);
 
 resize(); startCamera(); requestAnimationFrame(loop);

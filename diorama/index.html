@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Street Diorama</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
@@ -17,7 +19,7 @@
           grid-template-columns: minmax(0, 340px) minmax(0, 1fr); align-items: start; }
   @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  .back:hover { color: var(--acc); }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
   h1 { font: 400 clamp(52px, 7vw, 92px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 24px; }
@@ -29,9 +31,9 @@
   input[type=range] { width: 100%; accent-color: var(--acc); }
   button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
            border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
-  button:hover { background: var(--fg); color: var(--bg); }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
   button.primary { background: var(--fg); color: var(--bg); }
-  button.primary:hover { background: var(--acc); border-color: var(--acc); }
+  @media (hover: hover) and (pointer: fine) { button.primary:hover { background: var(--acc); border-color: var(--acc); } }
   .presets { display: flex; flex-wrap: wrap; gap: 6px; }
   .presets button { padding: 6px 8px; font-size: 11px; }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
@@ -44,6 +46,18 @@
   .hint { color: var(--dim); font-size: 12px; margin-top: 8px; }
   .credit { color: var(--dim); font-size: 11px; margin-top: 18px; }
   .credit a { color: inherit; }
+
+  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, .btn, summary { touch-action: manipulation; }
+  button, .btn, summary { -webkit-user-select: none; user-select: none; }
+  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active, .btn:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+  @media (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
+    button, .btn { min-block-size: 44px; }
+  }
 </style>
 </head>
 <body>
@@ -410,6 +424,7 @@ const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(()
 async function go(lat, lon, name) {
   Object.assign(state, { lat, lon, name });
   const id = ++loadId;
+  busy(true);
   status(`Loading ${name}…`);
   try {
     const data = await loadArea(lat, lon, state.R);
@@ -420,7 +435,10 @@ async function go(lat, lon, name) {
     history.replaceState(null, '', `#${lat.toFixed(5)},${lon.toFixed(5)},${state.R},${encodeURIComponent(name)}`);
     redraw();
   } catch (e) { if (id === loadId) status(`Couldn't load the map: ${e.message}`, true); }
+  finally { if (id === loadId) busy(false); }
 }
+// Disable Go and the presets while a place loads, so clicks can't stack Overpass/Nominatim calls
+function busy(on) { $('search').setAttribute('aria-busy', on); document.querySelectorAll('#search button, #presets button').forEach(b => (b.disabled = on)); }
 
 $('search').addEventListener('submit', async e => {
   e.preventDefault();
@@ -442,10 +460,11 @@ $('hx').oninput = e => setHx(+e.target.value);
 
 // Drag to rotate (horizontal), keyboard arrows on the focused canvas
 let drag = null;
-cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, rot: state.rot }; cv.setPointerCapture(e.pointerId); });
-cv.addEventListener('pointermove', e => { if (drag) setRot(drag.rot + (e.clientX - drag.x) * .5); });
-cv.addEventListener('pointerup', () => drag = null);
-cv.addEventListener('pointercancel', () => drag = null);
+cv.addEventListener('pointerdown', e => { if (drag || !e.isPrimary) return; drag = { id: e.pointerId, x: e.clientX, rot: state.rot }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (drag && e.pointerId === drag.id) setRot(drag.rot + (e.clientX - drag.x) * .5); });
+const endDrag = e => { if (drag && e.pointerId === drag.id) drag = null; };
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
 cv.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft') { setRot(state.rot - 15); e.preventDefault(); }
   if (e.key === 'ArrowRight') { setRot(state.rot + 15); e.preventDefault(); }

@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Creative Lab</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
@@ -18,13 +20,26 @@
   ol { list-style: none; margin: 0; padding: 0; border-top: 3px solid var(--line); }
   li a { display: grid; grid-template-columns: 4ch minmax(0, 1fr) auto; gap: 16px; align-items: baseline;
          padding: 18px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
-  li a:hover .name, li a:focus-visible .name { color: var(--accent); }
+  li a:focus-visible .name { color: var(--accent); }
+  @media (hover: hover) and (pointer: fine) { li a:hover .name { color: var(--accent); } }
   .no { color: var(--dim); }
   .name { font: 400 clamp(28px, 5vw, 48px)/1 var(--display); text-transform: uppercase; }
   .desc { display: block; color: var(--dim); margin-top: 6px; font-size: 13px; }
   .tag { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
   @media (max-width: 560px) { li a { grid-template-columns: 3ch minmax(0, 1fr); } .tag { grid-column: 2; } }
+
+  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, .btn, summary { touch-action: manipulation; }
+  button, .btn, summary { -webkit-user-select: none; user-select: none; }
+  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active, .btn:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+  @media (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
+    button, .btn { min-block-size: 44px; }
+  }
 </style>
 </head>
 <body>
