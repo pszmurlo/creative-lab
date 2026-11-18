@@ -93,6 +93,7 @@
   <div class="slip"><img id="out" alt=""></div>
 </div>
 
+<script src="../shared-hour/hours.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
@@ -129,20 +130,6 @@ function habits() {
     while (days.has(dayKey(d))) { streak++; d.setDate(d.getDate() - 1); }
     return { name: t.n, week, streak };
   });
-}
-// Same rule as Shared Hour: minutes of your day when everyone is awake
-function sharedWindows() {
-  const people = store.get('shared-hour', []);
-  if (people.length < 2) return null;
-  const offset = zone => { const at = new Date(), p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).formatToParts(at).map(x => [x.type, x.value])); return Math.round((Date.UTC(+p.year, p.month - 1, +p.day, +p.hour, +p.minute) - Math.floor(at.getTime() / 60000) * 60000) / 60000); };
-  const me = offset(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  const awake = (p, m) => { const h = ((m % 1440) + 1440) % 1440 / 60; return p.s > p.w ? h >= p.w && h < p.s : h >= p.w || h < p.s; };
-  const rel = people.map(p => { try { return offset(p.z) - me; } catch { return 0; } });
-  const all = Array.from({ length: 1440 }, (_, m) => people.every((p, i) => awake(p, m + rel[i])));
-  const out = []; let s = -1;
-  for (let m = 0; m <= 1440; m++) { const on = m < 1440 && all[m]; if (on && s < 0) s = m; else if (!on && s >= 0) { out.push([s, m]); s = -1; } }
-  if (out.length > 1 && out[0][0] === 0 && out.at(-1)[1] === 1440) { const f = out.shift(); out.at(-1)[1] = 1440 + f[1]; }
-  return { names: people.map(p => p.n), windows: out };
 }
 // Original prompts, one per day
 const PROMPTS = [
@@ -268,7 +255,7 @@ function drawIcon(x, kind, ox, oy, s, k) {
 /* ---------- Page ---------- */
 let canvas = null;
 async function render() {
-  const data = { habits: habits(), shared: sharedWindows(), weather: null, weatherErr: '' };
+  const data = { habits: habits(), shared: sharedHours(), weather: null, weatherErr: '' };
   if (cfg.sections.weather && cfg.place) {
     try { data.weather = await weather(cfg.place); } catch (e) { data.weatherErr = `Weather unavailable (${e.message}).`; }
   }

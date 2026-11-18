@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<title>Desk Display</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: full-screen kiosk. Clock on one side, weather / shared hour / streaks on the other (stacked in portrait).
+     Ambient = dark; e-ink = black on white with no motion; night = only a faint clock. */
+  :root { --bg: #000; --fg: #f2f0eb; --dim: #8d8a83; --line: #3a3936; --acc: #ff3b1f;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: dark; }
+  body.eink { --bg: #fff; --fg: #000; --dim: #000; --line: #000; --acc: #000; color-scheme: light; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.4 var(--mono); overflow: hidden; }
+  main { box-sizing: border-box; height: 100dvh; padding: max(4vmin, env(safe-area-inset-top)) max(5vmin, env(safe-area-inset-right)) max(4vmin, env(safe-area-inset-bottom)) max(5vmin, env(safe-area-inset-left));
+         display: grid; grid-template-columns: 1.15fr 1fr; gap: 5vmin; align-items: center; transition: transform 2s ease; }
+  @media (orientation: portrait) { main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-items: start; } }
+  body.eink main { transition: none; }
+  .clock b { display: block; font: 400 min(30vw, 46vh)/.82 var(--display); letter-spacing: -.01em; }
+  @media (orientation: portrait) { .clock b { font-size: min(36vw, 30vh); } }
+  .clock span { display: block; margin-top: 2vmin; font: 700 max(14px, 2.6vmin) var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .side { display: grid; gap: 3.2vmin; align-content: center; }
+  .panel { border-top: 2px solid var(--line); padding-top: 1.6vmin; }
+  .panel h2 { margin: 0 0 .8vmin; font: 700 max(11px, 1.7vmin) var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .big { font: 400 max(28px, 6.4vmin)/1 var(--display); text-transform: uppercase; }
+  .big.hot { color: var(--acc); }
+  .sub { font-size: max(13px, 2vmin); color: var(--dim); margin-top: .6vmin; }
+  .habits { display: grid; gap: 1vmin; }
+  .habit { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2vmin; align-items: center; width: 100%; text-align: left;
+           background: none; border: 2px solid var(--line); color: inherit; font: inherit; padding: 1.2vmin 1.6vmin; cursor: pointer; }
+  .habit b { font: 400 max(18px, 3.4vmin)/1.05 var(--display); text-transform: uppercase; display: block; }
+  .habit small { font-size: max(11px, 1.6vmin); color: var(--dim); }
+  .dots { display: flex; gap: .6vmin; }
+  .dots i { width: max(10px, 1.6vmin); height: max(10px, 1.6vmin); border: 2px solid var(--fg); box-sizing: border-box; }
+  .dots i.on { background: var(--fg); }
+  .habit.logged { border-color: var(--acc); }
+  .habit:active { transform: scale(.98); }
+  .empty { color: var(--dim); font-size: max(13px, 1.9vmin); }
+  .empty a { color: inherit; }
+
+  /* Night: only a faint clock, nothing else (tap to wake for 30 s) */
+  body.night .side, body.night .clock span { opacity: 0; }
+  body.night .clock b { opacity: .16; }
+  body.night.eink .clock b { opacity: 1; }
+  body.night.eink .side { opacity: 0; }
+
+  .gear { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); width: 44px; height: 44px;
+          border: 0; background: none; color: var(--dim); opacity: .35; font-size: 22px; cursor: pointer; }
+  .gear:focus-visible, .gear:hover { opacity: 1; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+
+  dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); background: #151514; color: #f2f0eb; border: 2px solid #f2f0eb; padding: 20px; overscroll-behavior: contain; font-size: 14px; }
+  body.eink dialog { background: #fff; color: #000; border-color: #000; }
+  dialog::backdrop { background: rgb(0 0 0 / .7); overflow: hidden; overscroll-behavior: contain; }
+  dialog h3 { margin: 0 0 14px; font: 400 32px/1 var(--display); text-transform: uppercase; }
+  dialog label { display: grid; gap: 6px; margin-bottom: 12px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  dialog .inline { display: flex; align-items: center; gap: 8px; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 14px; }
+  dialog select, dialog input[type=search] { font: 16px var(--mono); background: transparent; color: inherit; border: 2px solid currentColor; padding: 8px; border-radius: 0; }
+  dialog .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  dialog button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: inherit; background: none; border: 2px solid currentColor; padding: 10px 12px; min-block-size: 44px; cursor: pointer; }
+  dialog .note { color: #8d8a83; font-size: 12px; }
+  body.eink dialog .note { color: #000; }
+  dialog a { color: inherit; }
+  html { -webkit-tap-highlight-color: transparent; }
+  button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+</style>
+</head>
+<body>
+<main id="main">
+  <section class="clock" aria-label="Time"><b id="time">--:--</b><span id="date"></span></section>
+  <section class="side">
+    <div class="panel" id="p-weather"><h2 id="w-place">Weather</h2><div class="big" id="w-now">—</div><div class="sub" id="w-sub"></div></div>
+    <div class="panel" id="p-shared"><h2>Shared hour</h2><div class="big" id="s-big">—</div><div class="sub" id="s-sub"></div></div>
+    <div class="panel" id="p-habits"><h2>Today</h2><div class="habits" id="habits"></div></div>
+  </section>
+</main>
+<button class="gear" id="gear" type="button" aria-label="Display settings">⚙</button>
+
+<dialog id="settings" closedby="any" aria-labelledby="st">
+  <h3 id="st">Desk display</h3>
+  <label>Mode <select id="mode"><option value="ambient">Ambient (dark, for phones and tablets)</option><option value="eink">E-ink (black on white, no motion)</option></select></label>
+  <div class="row">
+    <label style="margin:0">Night from <select id="nfrom"></select></label>
+    <label style="margin:0">until <select id="nto"></select></label>
+  </div>
+  <label class="inline"><input type="checkbox" id="wake"> Keep the screen on <span id="wakestate" class="note"></span></label>
+  <label class="inline"><input type="checkbox" data-p="weather" checked> Weather</label>
+  <label class="inline"><input type="checkbox" data-p="shared" checked> Shared hour</label>
+  <label class="inline"><input type="checkbox" data-p="habits" checked> Habits</label>
+  <form id="cityform" class="row"><input type="search" id="city" placeholder="Weather city" aria-label="Weather city" style="flex:1"><button type="submit">Set</button></form>
+  <div class="row"><button type="button" id="fs">Full screen</button><button type="button" id="close">Close</button></div>
+  <p class="note">Install it: Android Chrome menu → Add to home screen; iPhone/iPad Share → Add to Home Screen. Keep the device charging; on Android also turn on Developer options → Stay awake. On an iPad, Guided Access keeps it locked to this page. Kindle and other e-readers: open it in the built-in browser and pick E-ink.</p>
+  <p class="note">Habits come from <a href="../tap/">Tap Log</a>, friends from <a href="../shared-hour/">Shared Hour</a>, the city from <a href="../morning-slip/">Morning Slip</a>, all stored in this browser. Tap a habit to log it.</p>
+</dialog>
+
+<script src="../shared-hour/hours.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const cfg = Object.assign({ mode: 'ambient', nightFrom: 23, nightTo: 7, wake: true, panels: { weather: true, shared: true, habits: true } }, store.get('desk-display', {}));
+const save = () => store.set('desk-display', cfg);
+const pad2 = n => String(n).padStart(2, '0');
+const hhmm = m => `${pad2(Math.floor(((m % 1440) + 1440) % 1440 / 60))}:${pad2(((m % 60) + 60) % 60)}`;
+const dur = m => m >= 60 ? `${Math.floor(m / 60)}h ${pad2(m % 60)}m` : `${m}m`;
+const dayKey = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const lang = navigator.language || 'en-GB';
+
+/* ---------- Clock and night ---------- */
+let wokeUntil = 0;
+function isNight(d = new Date()) { const h = d.getHours(), f = cfg.nightFrom, t = cfg.nightTo; return f === t ? false : f < t ? h >= f && h < t : h >= f || h < t; }
+function tickClock() {
+  const d = new Date();
+  $('time').textContent = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  $('date').textContent = new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
+  document.body.classList.toggle('night', isNight(d) && Date.now() > wokeUntil);
+}
+document.addEventListener('pointerdown', e => { if (document.body.classList.contains('night') && !e.target.closest('dialog, .gear')) { wokeUntil = Date.now() + 30000; tickClock(); e.preventDefault(); } }, true);
+
+/* ---------- Weather (city from Morning Slip, or guessed from the time zone) ---------- */
+function sky(code) {
+  if (code === 0) return 'Clear'; if (code <= 2) return 'Partly cloudy'; if (code === 3) return 'Overcast'; if (code <= 48) return 'Fog';
+  if (code <= 57) return 'Drizzle'; if (code <= 67) return 'Rain'; if (code <= 77) return 'Snow'; if (code <= 82) return 'Showers'; if (code <= 86) return 'Snow showers'; return 'Thunderstorm';
+}
+async function place() {
+  const slip = store.get('morning-slip', {});
+  if (slip.place) return slip.place;
+  const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' ');
+  const h = (await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(city)}`)).json()).results?.[0];
+  if (!h) throw new Error('no city');
+  const p = { name: h.name, lat: h.latitude, lon: h.longitude }; store.set('morning-slip', { ...slip, place: p }); return p;
+}
+async function tickWeather() {
+  if (!cfg.panels.weather) return;
+  try {
+    const p = await place();
+    const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`)).json();
+    $('w-place').textContent = p.name === 'Here' ? 'Weather' : p.name;
+    $('w-now').textContent = `${Math.round(j.current.temperature_2m)}° ${sky(j.current.weather_code)}`;
+    $('w-sub').textContent = `${Math.round(j.daily.temperature_2m_min[0])}° / ${Math.round(j.daily.temperature_2m_max[0])}° · rain ${j.daily.precipitation_probability_max[0] ?? 0}%`;
+  } catch (e) { $('w-now').textContent = '—'; $('w-sub').textContent = 'Weather unavailable'; }
+}
+
+/* ---------- Shared hour ---------- */
+function tickShared() {
+  const s = sharedHours();
+  if (!s) { $('s-big').textContent = 'Add friends'; $('s-big').className = 'big'; $('s-sub').innerHTML = 'Set them up in <a href="../shared-hour/" style="color:inherit">Shared Hour</a>.'; return; }
+  if (s.current) { $('s-big').textContent = 'Shared now'; $('s-big').className = 'big hot'; $('s-sub').textContent = `${dur(s.left)} left · ${s.names.join(', ')}`; }
+  else if (s.next) { $('s-big').textContent = `In ${dur(s.wait)}`; $('s-big').className = 'big'; $('s-sub').textContent = `${hhmm(s.next[0])}–${hhmm(s.next[1])} · ${s.names.join(', ')}`; }
+  else { $('s-big').textContent = 'No overlap'; $('s-big').className = 'big'; $('s-sub').textContent = s.names.join(', '); }
+}
+
+/* ---------- Habits: Tap Log's stickers, tap to log ---------- */
+function tickHabits() {
+  const tags = store.get('tap-tags', {}), log = store.get('tap-log', []), today = new Date(); today.setHours(0, 0, 0, 0);
+  const slugs = Object.keys(tags);
+  if (!slugs.length) { $('habits').innerHTML = '<p class="empty">No habits yet. Make stickers in <a href="../tap/">Tap Log</a>.</p>'; return; }
+  $('habits').replaceChildren(...slugs.slice(0, 4).map(slug => {
+    const days = new Map(); for (const x of log) if (x.t === slug) { const k = dayKey(new Date(x.ts)); days.set(k, (days.get(k) || 0) + 1); }
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'habit';
+    const n = days.get(dayKey(today)) || 0;
+    b.innerHTML = `<span><b></b><small>${n ? `${n}× today` : 'not yet today'}</small></span><span class="dots" aria-hidden="true"></span>`;
+    b.querySelector('b').textContent = tags[slug].n;
+    b.querySelector('.dots').innerHTML = Array.from({ length: 7 }, (_, i) => { const d = new Date(today); d.setDate(d.getDate() - 6 + i); return `<i class="${days.has(dayKey(d)) ? 'on' : ''}"></i>`; }).join('');
+    b.setAttribute('aria-label', `${tags[slug].n}: ${n} today. Tap to log.`);
+    b.onclick = () => {
+      const all = store.get('tap-log', []), last = all.at(-1);
+      if (!(last && last.t === slug && Date.now() - last.ts < 10000)) { all.push({ t: slug, ts: Date.now() }); store.set('tap-log', all); }
+      tickHabits(); const nb = [...$('habits').children][slugs.indexOf(slug)]; nb?.classList.add('logged'); setTimeout(() => nb?.classList.remove('logged'), 1500);
+    };
+    return b;
+  }));
+}
+
+/* ---------- Keeping the screen on, burn-in shift, modes ---------- */
+let lock = null;
+async function wake() {
+  if (!cfg.wake || !('wakeLock' in navigator) || document.visibilityState !== 'visible') { $('wakestate').textContent = 'wakeLock' in navigator ? '' : '(not supported in this browser)'; return; }
+  try { lock = await navigator.wakeLock.request('screen'); $('wakestate').textContent = '(on)'; lock.addEventListener('release', () => { $('wakestate').textContent = '(released)'; }); }
+  catch (e) { $('wakestate').textContent = `(${e.message})`; }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { wake(); refresh(); } });
+function shift() { // move everything a few pixels now and then so an OLED doesn't burn in
+  if (cfg.mode !== 'ambient') { $('main').style.transform = ''; return; }
+  $('main').style.transform = `translate(${Math.round(Math.random() * 12 - 6)}px, ${Math.round(Math.random() * 12 - 6)}px)`;
+}
+function applyCfg() {
+  document.body.classList.toggle('eink', cfg.mode === 'eink');
+  document.querySelector('meta[name=theme-color]').content = cfg.mode === 'eink' ? '#ffffff' : '#000000';
+  for (const k of ['weather', 'shared', 'habits']) $(`p-${k}`).hidden = !cfg.panels[k];
+}
+// Don't rebuild the habit buttons under a keyboard user's focus
+function refresh() { tickClock(); tickShared(); if (!$('habits').contains(document.activeElement)) tickHabits(); }
+
+/* ---------- Settings ---------- */
+for (let h = 0; h < 24; h++) { $('nfrom').add(new Option(`${pad2(h)}:00`, h)); $('nto').add(new Option(`${pad2(h)}:00`, h)); }
+$('mode').value = cfg.mode; $('nfrom').value = cfg.nightFrom; $('nto').value = cfg.nightTo; $('wake').checked = cfg.wake;
+document.querySelectorAll('[data-p]').forEach(cb => { cb.checked = cfg.panels[cb.dataset.p] !== false; cb.onchange = () => { cfg.panels[cb.dataset.p] = cb.checked; save(); applyCfg(); tickWeather(); }; });
+$('mode').onchange = e => { cfg.mode = e.target.value; save(); applyCfg(); shift(); };
+$('nfrom').onchange = e => { cfg.nightFrom = +e.target.value; save(); tickClock(); };
+$('nto').onchange = e => { cfg.nightTo = +e.target.value; save(); tickClock(); };
+$('wake').onchange = e => { cfg.wake = e.target.checked; save(); if (cfg.wake) wake(); else lock?.release(); };
+$('gear').onclick = () => { $('city').value = store.get('morning-slip', {}).place?.name || ''; $('settings').showModal(); };
+$('close').onclick = () => $('settings').close();
+$('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+$('cityform').addEventListener('submit', async e => {
+  e.preventDefault(); const q = $('city').value.trim(); if (!q) return;
+  const h = (await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`)).json()).results?.[0];
+  if (!h) { $('city').setCustomValidity('City not found'); $('city').reportValidity(); return; }
+  $('city').setCustomValidity(''); store.set('morning-slip', { ...store.get('morning-slip', {}), place: { name: h.name, lat: h.latitude, lon: h.longitude } }); tickWeather();
+});
+if (!('closedBy' in HTMLDialogElement.prototype)) $('settings').addEventListener('click', e => { if (e.target !== $('settings')) return; const r = e.target.getBoundingClientRect(); if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) e.target.close(); });
+// Data changed in another tab (Tap Log, Shared Hour)
+addEventListener('storage', refresh);
+
+/* ---------- Start ---------- */
+applyCfg(); refresh(); tickWeather(); wake();
+// Ambient: check every 5 s; e-ink: redraw exactly on the minute, nothing in between
+(function loop() { refresh(); setTimeout(loop, cfg.mode === 'eink' ? 60000 - Date.now() % 60000 + 50 : 5000); })();
+setInterval(tickWeather, 30 * 60000);
+setInterval(shift, 3 * 60000);
+</script>
+</body>
+</html>
