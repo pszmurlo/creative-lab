@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Parking Calendar</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: header and options, then twelve sheets in a grid; printing shows only the sheets, one per page */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  header { border-bottom: 3px solid var(--line); padding-bottom: 16px; margin: 14px 0 20px; display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: end; justify-content: space-between; }
+  h1 { font: 400 clamp(56px, 10vw, 124px)/.85 var(--display); text-transform: uppercase; margin: 0; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); max-width: 56ch; margin: 0; }
+  .opts { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: end; margin-bottom: 24px; }
+  label { display: grid; gap: 6px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  select { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .note { color: var(--dim); font-size: 12px; margin: 0 0 20px; max-width: 80ch; }
+  .sheets { display: grid; gap: 24px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+  .sheet { margin: 0; }
+  .paper { background: #fbfaf6; border: 1px solid rgb(0 0 0 / .2); box-shadow: 0 14px 30px -18px rgb(0 0 0 / .5); }
+  .paper svg { display: block; width: 100%; height: auto; }
+  .sheet figcaption { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-top: 8px; font-size: 12px; color: var(--dim); }
+  .sheet figcaption button { padding: 4px 8px; font-size: 11px; }
+  /* Touch baseline (same as the other pages) */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a { touch-action: manipulation; }
+  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  @media (pointer: coarse) { select { font-size: 16px !important; } button { min-block-size: 44px; } }
+
+  @media print {
+    body { background: #fff; }
+    .wrap { padding: 0; max-width: none; }
+    .back, header, .opts, .note, .sheet figcaption { display: none !important; }
+    .sheets { display: block; }
+    .sheet { break-after: page; }
+    .paper { border: 0; box-shadow: none; background: #fff; }
+    .paper svg { width: var(--pw); height: var(--ph); }
+  }
+</style>
+<style id="pagesize">@page { size: A3 portrait; margin: 0; }</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../">← Creative Lab</a>
+  <header>
+    <h1>Parking<br>calendar<span>.</span></h1>
+    <p class="lede">Twelve months of perfect parking. Each month's drawing is seeded by its date, so a year always comes out the same, and every page is a plotter-ready SVG.</p>
+  </header>
+
+  <div class="opts">
+    <label>Year <select id="year"></select></label>
+    <label>Paper <select id="paper"><option>A4</option><option selected>A3</option></select></label>
+    <label>Language <select id="lang">
+      <option value="en-GB">English</option><option value="pl-PL">Polski</option><option value="de-DE">Deutsch</option>
+      <option value="fr-FR">Français</option><option value="es-ES">Español</option></select></label>
+    <label>Pens <select id="pens"><option value="2">Two (Sundays in red)</option><option value="1">One</option></select></label>
+    <div class="row">
+      <button type="button" class="primary" id="print">Print / PDF</button>
+      <button type="button" id="all">Download 12 SVGs</button>
+    </div>
+  </div>
+  <p class="note">Printing saves all twelve pages as one PDF at true size. For a pen plotter, use the SVGs: one layer per pen, sized in millimetres. The month names and dates are text, so convert them to single-line strokes first (Inkscape's Hershey Text extension) or plot them as outlines.</p>
+
+  <div class="sheets" id="sheets"></div>
+</div>
+
+<script src="../parking/plot.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const state = { year: new Date().getFullYear() + (new Date().getMonth() >= 9 ? 1 : 0), paper: 'A3', lang: 'en-GB', pens: 2 };
+const LAYOUTS = ['rosette', 'grid', 'street'];
+
+// Month m (0-11): layout and car count rotate through the year; the seed is the date itself
+function monthPlot(year, m, paper) {
+  const [PW, PH] = PAPERS[paper], M = PW * .085;
+  const layout = LAYOUTS[m % 3];
+  const count = layout === 'rosette' ? 8 + (m % 5) * 2 : layout === 'grid' ? 4 + (m % 2) * 2 : 6;
+  const o = { layout, paper, pens: state.pens, ghosts: 12, count, seed: year * 100 + m + 1,
+              area: { x: M, y: M, w: PW - 2 * M, h: PH * .6 - M } };
+  return { o, r: build(o) };
+}
+
+// The calendar layer: month name, weekday row, dates (Monday first); Sundays go on pen 2
+function calendarLayer(year, m, paper) {
+  const [PW, PH] = PAPERS[paper], M = PW * .085, k = PW / 210;
+  const ink2 = state.pens === 1 ? '#111' : '#e8341c';
+  const monthName = new Intl.DateTimeFormat(state.lang, { month: 'long' }).format(new Date(year, m, 1));
+  const days = Array.from({ length: 7 }, (_, i) => new Intl.DateTimeFormat(state.lang, { weekday: 'short' }).format(new Date(2024, 0, 1 + i))); // 1 Jan 2024 was a Monday
+  const top = PH * .64, gridTop = top + 18 * k, cw = (PW - 2 * M) / 7, rows = 6, rh = (PH - M - gridTop) / rows;
+  const esc = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  let pen1 = '', pen2 = '';
+  pen1 += `<text x="${M}" y="${top}" font-family="Anton, Impact, sans-serif" font-size="${17 * k}">${esc(monthName.toUpperCase())}</text>`;
+  pen1 += `<text x="${PW - M}" y="${top}" text-anchor="end" font-family="Space Mono, monospace" font-weight="700" font-size="${6 * k}">${year}</text>`;
+  pen1 += `<path d="M${M} ${top + 4 * k}H${PW - M}" fill="none" stroke="#111" stroke-width="${.5 * k}"/>`;
+  days.forEach((d, i) => {
+    const t = `<text x="${M + i * cw}" y="${top + 14 * k}" font-family="Space Mono, monospace" font-size="${3.2 * k}">${esc(d.replace('.', '').toUpperCase())}</text>`;
+    if (i === 6) pen2 += t; else pen1 += t;
+  });
+  const first = (new Date(year, m, 1).getDay() + 6) % 7, n = new Date(year, m + 1, 0).getDate();
+  for (let day = 1; day <= n; day++) {
+    const idx = first + day - 1, col = idx % 7, row = Math.floor(idx / 7);
+    const t = `<text x="${M + col * cw}" y="${gridTop + row * rh + 6 * k}" font-family="Space Mono, monospace" font-size="${6 * k}">${day}</text>`;
+    if (col === 6) pen2 += t; else pen1 += t;
+  }
+  return `<g id="calendar" inkscape:groupmode="layer" inkscape:label="4 calendar" fill="#111">${pen1}</g>`
+       + `<g id="calendar-sundays" inkscape:groupmode="layer" inkscape:label="5 calendar sundays" fill="${ink2}">${pen2}</g>`;
+}
+
+const sheets = [];
+function render() {
+  const [PW, PH] = PAPERS[state.paper];
+  $('pagesize').textContent = `@page { size: ${state.paper} portrait; margin: 0; }`;
+  document.documentElement.style.setProperty('--pw', PW + 'mm'); document.documentElement.style.setProperty('--ph', PH + 'mm');
+  sheets.length = 0;
+  const fmt = new Intl.DateTimeFormat(state.lang, { month: 'long' });
+  $('sheets').replaceChildren(...Array.from({ length: 12 }, (_, m) => {
+    const { o, r } = monthPlot(state.year, m, state.paper);
+    const markup = svg(r, o, calendarLayer(state.year, m, state.paper)).replace('role="img" aria-label="Plot of', `role="img" aria-label="${fmt.format(new Date(state.year, m, 1))} ${state.year}: plot of`);
+    sheets.push(markup);
+    const f = document.createElement('figure'); f.className = 'sheet';
+    f.innerHTML = `<div class="paper">${markup}</div><figcaption><span></span><button type="button">SVG</button></figcaption>`;
+    f.querySelector('figcaption span').textContent = `${fmt.format(new Date(state.year, m, 1))} · ${o.layout} · ${o.count} cars`;
+    const b = f.querySelector('button'); b.setAttribute('aria-label', `Download ${fmt.format(new Date(state.year, m, 1))} as SVG`);
+    b.onclick = () => download(m);
+    return f;
+  }));
+  history.replaceState(null, '', '#' + new URLSearchParams(Object.entries(state)));
+}
+function download(m) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([sheets[m]], { type: 'image/svg+xml' }));
+  a.download = `parking-calendar-${state.year}-${String(m + 1).padStart(2, '0')}.svg`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+const thisYear = new Date().getFullYear();
+for (let y = thisYear - 1; y <= thisYear + 4; y++) $('year').add(new Option(y, y));
+for (const [k, v] of new URLSearchParams(location.hash.slice(1))) if (k in state) state[k] = typeof state[k] === 'number' ? +v : v;
+if (!PAPERS[state.paper]) state.paper = 'A3';
+$('year').value = state.year; $('paper').value = state.paper; $('lang').value = state.lang; $('pens').value = state.pens;
+$('year').onchange = e => { state.year = +e.target.value; render(); };
+$('paper').onchange = e => { state.paper = e.target.value; render(); };
+$('lang').onchange = e => { state.lang = e.target.value; render(); };
+$('pens').onchange = e => { state.pens = +e.target.value; render(); };
+$('print').onclick = () => print();
+$('all').onclick = async () => { for (let m = 0; m < 12; m++) { download(m); await new Promise(r => setTimeout(r, 350)); } };
+render();
+</script>
+</body>
+</html>
