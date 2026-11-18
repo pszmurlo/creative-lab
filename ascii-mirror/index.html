@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ASCII Mirror</title>
+<style>
+  /* Layout: full-bleed phosphor screen, one floating control strip at the bottom */
+  :root {
+    --bg: #07090a;
+    --panel: rgba(16, 20, 19, 0.82);
+    --line: #22302b;
+    --fg: #cfe9dd;
+    --dim: #6f8a7f;
+    --accent: #7dffb2;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 var(--mono); overflow: hidden; }
+  canvas#screen { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .bar {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center;
+    max-width: calc(100% - 32px);
+    padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    backdrop-filter: blur(8px); transition: opacity .3s;
+  }
+  .bar.idle { opacity: 0; }
+  .bar:hover, .bar:focus-within { opacity: 1; }
+  label { display: flex; gap: 6px; align-items: center; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
+  select, button, input[type=range] { font: inherit; color: var(--fg); }
+  select, button { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
+  button:hover, select:hover { border-color: var(--accent); color: var(--accent); }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type=range] { accent-color: var(--accent); width: 90px; }
+  .status { position: fixed; top: 14px; left: 16px; padding: 4px 8px; border-radius: 6px; background: var(--panel); color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
+  .status b { color: var(--accent); font-weight: normal; }
+  .toast { position: fixed; top: 14px; right: 16px; color: var(--accent); font-size: 12px; opacity: 0; transition: opacity .3s; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="screen"></canvas>
+<div class="status" id="status">ASCII Mirror · <b id="src">starting camera…</b> · <span id="fps"></span></div>
+<div class="toast" id="toast"></div>
+
+<div class="bar" id="bar">
+  <label for="charset">Glyphs
+    <select id="charset">
+      <option value=" .:-=+*#%@">Classic</option>
+      <option value=" ░▒▓█">Blocks</option>
+      <option value=" .'`^,:;Il!i><~+_-?][}{1)(|\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$">Dense</option>
+      <option value=" 01">Binary</option>
+      <option value=" ·•●">Dots</option>
+      <option value=" ｦｱｳｴｵｶｷｹｺｻｼｽｾｿﾀﾂﾃﾅﾆﾇﾈﾊﾋﾎﾏﾐﾑﾒﾓﾔﾕﾗﾘﾜ">Rain</option>
+    </select>
+  </label>
+  <label for="color">Color
+    <select id="color">
+      <option value="phosphor">Phosphor</option>
+      <option value="amber">Amber</option>
+      <option value="true">True color</option>
+      <option value="heat">Heat</option>
+      <option value="paper">Paper</option>
+    </select>
+  </label>
+  <label for="size">Cell <input id="size" type="range" min="6" max="28" value="12"></label>
+  <label for="contrast">Contrast <input id="contrast" type="range" min="50" max="250" value="130"></label>
+  <label for="glow">Glow <input id="glow" type="range" min="0" max="100" value="45"></label>
+  <button id="invert" aria-pressed="false" title="Invert (I)">Invert</button>
+  <button id="flip" aria-pressed="true" title="Mirror (M)">Mirror</button>
+  <button id="freeze" aria-pressed="false" title="Freeze (Space)">Freeze</button>
+  <button id="snap" title="Save PNG (S)">Save PNG</button>
+  <button id="copy" title="Copy as text (C)">Copy text</button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const screen = $('screen'), ctx = screen.getContext('2d');
+const glowCv = document.createElement('canvas'), gctx = glowCv.getContext('2d');
+const sample = document.createElement('canvas'), sctx = sample.getContext('2d', { willReadFrequently: true });
+const video = document.createElement('video');
+video.playsInline = true; video.muted = true;
+
+const state = { cols: 0, rows: 0, cw: 0, ch: 0, frozen: false, invert: false, flip: true, live: false, lastText: '' };
+const PALETTES = {
+  phosphor: { bg: '#07090a', f: v => `hsl(145 100% ${12 + v * 68}%)` },
+  amber:    { bg: '#0b0703', f: v => `hsl(36 100% ${10 + v * 60}%)` },
+  heat:     { bg: '#05030a', f: v => `hsl(${260 - v * 220} 95% ${15 + v * 50}%)` },
+  paper:    { bg: '#efeae0', f: v => `hsl(220 25% ${88 - v * 80}%)`, paper: true },
+};
+
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  screen.width = innerWidth * dpr; screen.height = innerHeight * dpr;
+  glowCv.width = screen.width / 2; glowCv.height = screen.height / 2;
+  const size = +$('size').value * dpr;
+  state.ch = size; state.cw = size * 0.62;
+  state.cols = Math.floor(screen.width / state.cw);
+  state.rows = Math.floor(screen.height / state.ch);
+  sample.width = state.cols; sample.height = state.rows;
+}
+
+// Fallback source when no camera: drifting interference pattern, so the screen is never empty.
+function drawDemo(t) {
+  const { cols, rows } = state, img = sctx.createImageData(cols, rows), d = img.data;
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const nx = x / cols - .5, ny = (y / rows - .5) * rows / cols * 1.6;
+    const r = Math.hypot(nx, ny);
+    const v = .5 + .5 * Math.sin(r * 28 - t * 2.2) * Math.cos(nx * 9 + t * .7) + .25 * Math.sin(ny * 14 - t);
+    const c = Math.max(0, Math.min(255, v * 200)), i = (y * cols + x) * 4;
+    d[i] = c * (.6 + .4 * Math.sin(t + nx * 4)); d[i + 1] = c; d[i + 2] = c * (.7 + .3 * Math.cos(t * .8)); d[i + 3] = 255;
+  }
+  sctx.putImageData(img, 0, 0);
+}
+
+function grab(t) {
+  if (!state.live) return drawDemo(t / 1000);
+  const { cols, rows } = state;
+  // cover-fit the video into the sample grid, correcting for the cell aspect
+  const vw = video.videoWidth, vh = video.videoHeight; if (!vw) return;
+  const target = (cols * state.cw) / (rows * state.ch), src = vw / vh;
+  let sw = vw, sh = vh, sx = 0, sy = 0;
+  if (src > target) { sw = vh * target; sx = (vw - sw) / 2; } else { sh = vw / target; sy = (vh - sh) / 2; }
+  sctx.save();
+  if (state.flip) { sctx.translate(cols, 0); sctx.scale(-1, 1); }
+  sctx.drawImage(video, sx, sy, sw, sh, 0, 0, cols, rows);
+  sctx.restore();
+}
+
+function render() {
+  const { cols, rows, cw, ch } = state;
+  const glyphs = [...$('charset').value], n = glyphs.length - 1;
+  const mode = $('color').value, pal = PALETTES[mode] || PALETTES.phosphor;
+  const k = +$('contrast').value / 100;
+  const data = sctx.getImageData(0, 0, cols, rows).data;
+  const bg = mode === 'true' ? '#050505' : pal.bg;
+  document.body.style.background = bg;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, screen.width, screen.height);
+  ctx.font = `${ch * 0.92}px ${getComputedStyle(document.body).getPropertyValue('--mono')}`;
+  ctx.textBaseline = 'top';
+  const lines = [];
+  let lastFill = '';
+  for (let y = 0; y < rows; y++) {
+    let line = '';
+    for (let x = 0; x < cols; x++) {
+      const i = (y * cols + x) * 4, r = data[i], g = data[i + 1], b = data[i + 2];
+      let v = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+      v = Math.max(0, Math.min(1, (v - .5) * k + .5));
+      if (state.invert) v = 1 - v;
+      if (pal.paper) v = v; // paper palette already darkens with v
+      const gi = Math.round(v * n), chr = glyphs[gi];
+      line += chr;
+      if (gi === 0) continue;
+      let fill;
+      if (mode === 'true') {
+        const q = c => (c >> 4) << 4; // quantize to cut fillStyle churn
+        fill = state.invert ? `rgb(${255 - q(r)},${255 - q(g)},${255 - q(b)})` : `rgb(${q(r)},${q(g)},${q(b)})`;
+      } else fill = pal.f(Math.round(v * 12) / 12);
+      if (fill !== lastFill) { ctx.fillStyle = fill; lastFill = fill; }
+      ctx.fillText(chr, x * cw, y * ch);
+    }
+    lines.push(line.replace(/\s+$/, ''));
+  }
+  state.lastText = lines.join('\n');
+
+  const glow = +$('glow').value / 100;
+  if (glow > 0 && !pal.paper) {
+    gctx.clearRect(0, 0, glowCv.width, glowCv.height);
+    gctx.filter = `blur(${4 + glow * 10}px)`;
+    gctx.drawImage(screen, 0, 0, glowCv.width, glowCv.height);
+    gctx.filter = 'none';
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = glow;
+    ctx.drawImage(glowCv, 0, 0, screen.width, screen.height);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+}
+
+let frames = 0, fpsT = performance.now();
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function loop(t) {
+  if (!state.frozen) { grab(reduceMotion && !state.live ? 0 : t); render(); }
+  frames++;
+  if (t - fpsT > 1000) { $('fps').textContent = `${frames} fps · ${state.cols}×${state.rows}`; frames = 0; fpsT = t; }
+  requestAnimationFrame(loop);
+}
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false });
+    video.srcObject = stream; await video.play();
+    state.live = true; $('src').textContent = 'camera live';
+  } catch (e) {
+    $('src').textContent = 'no camera access, showing demo pattern';
+    console.warn(e);
+  }
+}
+
+function toast(msg) { const el = $('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 1600); }
+function toggle(id, key) { state[key] = !state[key]; $(id).setAttribute('aria-pressed', state[key]); }
+
+$('invert').onclick = () => toggle('invert', 'invert');
+$('flip').onclick = () => toggle('flip', 'flip');
+$('freeze').onclick = () => toggle('freeze', 'frozen');
+$('size').oninput = resize;
+$('snap').onclick = () => {
+  const a = document.createElement('a');
+  a.download = `ascii-mirror-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+  a.href = screen.toDataURL('image/png'); a.click(); toast('Saved PNG');
+};
+$('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText(state.lastText); toast('Copied frame as text'); }
+  catch { toast('Copy failed: clipboard blocked'); }
+};
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+  const map = { ' ': 'freeze', i: 'invert', m: 'flip', s: 'snap', c: 'copy' };
+  const id = map[e.key.toLowerCase()]; if (id) { e.preventDefault(); $(id).click(); }
+});
+let idleT; addEventListener('pointermove', () => { $('bar').classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(() => $('bar').classList.add('idle'), 3000); });
+addEventListener('resize', resize);
+
+resize(); startCamera(); requestAnimationFrame(loop);
+</script>
+</body>
+</html>

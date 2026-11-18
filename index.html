@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Creative Lab</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: a numbered index of experiments, newest on top, one row per piece */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --accent: #ff3b1f;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; color-scheme: dark; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px max(16px, 4vw) 80px; }
+  h1 { font: 400 clamp(56px, 12vw, 150px)/.85 var(--display); text-transform: uppercase; margin: 0 0 12px; }
+  h1 span { color: var(--accent); }
+  .lede { color: var(--dim); max-width: 52ch; margin: 0 0 40px; }
+  ol { list-style: none; margin: 0; padding: 0; border-top: 3px solid var(--line); }
+  li a { display: grid; grid-template-columns: 4ch minmax(0, 1fr) auto; gap: 16px; align-items: baseline;
+         padding: 18px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+  li a:hover .name, li a:focus-visible .name { color: var(--accent); }
+  .no { color: var(--dim); }
+  .name { font: 400 clamp(28px, 5vw, 48px)/1 var(--display); text-transform: uppercase; }
+  .desc { display: block; color: var(--dim); margin-top: 6px; font-size: 13px; }
+  .tag { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 560px) { li a { grid-template-columns: 3ch minmax(0, 1fr); } .tag { grid-column: 2; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Creative<br>Lab<span>.</span></h1>
+  <p class="lede">Small and bigger experiments for the fun of making things. Ideas start from posts I bookmark on X.</p>
+  <ol>
+    <li><a href="poster-machine/index.html">
+      <span class="no">02</span>
+      <span><span class="name">Poster Machine</span><span class="desc">X bookmarks reprinted as brutalist posters, five layouts, seven inks, PNG export.</span></span>
+      <span class="tag">canvas · type · 2026.11</span></a></li>
+    <li><a href="ascii-mirror/index.html">
+      <span class="no">01</span>
+      <span><span class="name">ASCII Mirror</span><span class="desc">Webcam to live ASCII art with glow, six glyph sets and five color modes.</span></span>
+      <span class="tag">webcam · canvas · 2026.11</span></a></li>
+  </ol>
+</div>
+</body>
+</html>
