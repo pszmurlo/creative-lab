@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tap Log</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: tap screen (full-height confirmation) or dashboard (header, tag cards with heatmaps, recent taps, data tools) */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed; --heat: 17 17 17;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; --heat: 242 240 235; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px max(16px, 4vw) 72px; }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  .back:hover { color: var(--acc); }
+  header { border-bottom: 3px solid var(--line); padding-bottom: 18px; margin: 14px 0 24px; }
+  h1 { font: 400 clamp(56px, 11vw, 132px)/.85 var(--display); text-transform: uppercase; margin: 0 0 12px; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); max-width: 62ch; margin: 0; }
+  h2 { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin: 32px 0 10px; }
+  button, .btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; text-decoration: none; display: inline-block; }
+  button:hover, .btn:hover { background: var(--fg); color: var(--bg); }
+  button.primary { background: var(--fg); color: var(--bg); }
+  button.primary:hover { background: var(--acc); border-color: var(--acc); }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  input[type=text], input[type=url] { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; min-width: 0; }
+  label { display: grid; gap: 4px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .note { color: var(--dim); font-size: 12px; }
+
+  .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); }
+  .card { border: 2px solid var(--line); background: var(--field); padding: 14px; display: grid; gap: 10px; }
+  .card .top { display: flex; align-items: center; gap: 12px; }
+  .card .emo { font-size: 36px; line-height: 1; }
+  .card b { font: 400 26px/1 var(--display); text-transform: uppercase; display: block; }
+  .card .stats { color: var(--dim); font-size: 12px; }
+  .card .stats strong { color: var(--fg); }
+  .card .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); gap: 3px; }
+  .heat i { aspect-ratio: 1; background: rgb(var(--heat) / .07); }
+  .heat i[data-n="1"] { background: rgb(var(--heat) / .35); }
+  .heat i[data-n="2"] { background: rgb(var(--heat) / .6); }
+  .heat i[data-n="3"] { background: rgb(var(--heat) / .85); }
+  .heat i.today { outline: 2px solid var(--acc); outline-offset: -1px; }
+  .empty { border: 2px dashed var(--dim); padding: 20px; color: var(--dim); }
+
+  form.new { display: grid; grid-template-columns: 90px minmax(0, 1fr) minmax(0, 1.4fr) auto; gap: 8px; align-items: end; }
+  @media (max-width: 720px) { form.new { grid-template-columns: 80px minmax(0, 1fr); } form.new .wide { grid-column: 1 / -1; } }
+  ol.recent { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  ol.recent li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 25%, transparent); }
+  ol.recent time { color: var(--dim); }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  /* Sticker dialog */
+  dialog { width: min(560px, calc(100vw - 32px)); border: 3px solid var(--line); background: var(--bg); color: var(--fg); padding: 20px; overscroll-behavior: contain; }
+  dialog::backdrop { background: rgb(0 0 0 / .6); overflow: hidden; overscroll-behavior: contain; }
+  dialog h3 { margin: 0 0 12px; font: 400 34px/1 var(--display); text-transform: uppercase; }
+  .qr { display: grid; place-items: center; background: #fff; padding: 12px; width: 220px; margin: 0 auto 12px; }
+  .qr img, .qr svg { width: 196px; height: 196px; display: block; }
+  code.url { display: block; padding: 10px; background: var(--field); border: 1px solid var(--line); word-break: break-all; font-size: 12px; }
+  .copy { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+  .tip { font-size: 12px; color: var(--acc); opacity: 0; transition: opacity .15s; }
+  .tip:not(:empty) { opacity: 1; }
+  .dlg-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
+  .dlg-acts .close { margin-left: auto; }
+
+  /* Tap screen */
+  .tapscreen { min-height: 100dvh; display: grid; place-content: center; text-align: center; gap: 16px; padding: 24px 16px; box-sizing: border-box; }
+  .tapscreen .emo { font-size: clamp(96px, 30vw, 180px); line-height: 1; }
+  .tapscreen h1 { font-size: clamp(48px, 14vw, 110px); margin: 0; }
+  .tapscreen .meta { color: var(--dim); font-size: 15px; }
+  .tapscreen .meta strong { color: var(--fg); }
+  .tapscreen .acts { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .pop { animation: pop .5s cubic-bezier(.3, 1.6, .5, 1) both; }
+  @keyframes pop { from { transform: scale(.4); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .pop { animation: fade .3s both; } @keyframes fade { from { opacity: 0; } } }
+  .emo, #emoji, dialog h3 { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif; }
+  dialog h3 { font-family: var(--display), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<main class="tapscreen" id="tap" hidden aria-live="polite">
+  <div class="emo pop" id="tapemo"></div>
+  <h1 id="tapname"></h1>
+  <p class="meta" id="tapmeta"></p>
+  <p class="meta" id="tapgo" hidden></p>
+  <div class="acts">
+    <button type="button" id="undo">Undo</button>
+    <button type="button" id="stay" hidden>Stay here</button>
+    <a class="btn" href="./" id="seeall">See all</a>
+  </div>
+</main>
+
+<div class="wrap" id="dash" hidden>
+  <a class="back" href="../">← Creative Lab</a>
+  <header>
+    <h1>Tap<br>log<span>.</span></h1>
+    <p class="lede">Stick an NFC sticker on the coffee machine, the plant, the dumbbells. Tapping it with your phone opens this page, logs the moment, and can then open a link, like a playlist. Everything is stored on your phone only.</p>
+  </header>
+
+  <form class="new" id="newtag">
+    <label>Emoji <input type="text" id="emoji" value="☕" maxlength="8" required></label>
+    <label>Name <input type="text" id="name" placeholder="Coffee" maxlength="40" required></label>
+    <label class="wide">Then open (optional) <input type="url" id="go" placeholder="https://open.spotify.com/playlist/…"></label>
+    <button class="primary wide" type="submit">New sticker</button>
+  </form>
+
+  <h2>Your stickers</h2>
+  <div class="cards" id="cards"></div>
+
+  <h2>Recent taps</h2>
+  <ol class="recent" id="recent"></ol>
+
+  <h2>Your data</h2>
+  <div class="tools">
+    <button type="button" id="export">Export JSON</button>
+    <label class="btn" style="display:inline-block">Import JSON<input type="file" id="import" accept="application/json" hidden></label>
+    <button type="button" id="clear">Clear all</button>
+  </div>
+  <p class="note">Taps live in this browser's storage. Export now and then if you care about the history; clearing site data deletes it.</p>
+</div>
+
+<dialog id="dlg" closedby="any" aria-labelledby="dlg-title">
+  <h3 id="dlg-title"></h3>
+  <div class="qr" id="qr"></div>
+  <code class="url" id="url"></code>
+  <p class="note" id="fit"></p>
+  <div class="dlg-acts">
+    <span class="copy">
+      <button type="button" class="primary" command="--copy" commandfor="url" aria-label="Copy sticker link">Copy link</button>
+      <span class="tip" role="status"></span>
+    </span>
+    <button type="button" id="write" hidden>Write to sticker</button>
+    <button type="button" class="close" id="dlgclose">Close</button>
+  </div>
+  <p class="note" id="writemsg" role="status"></p>
+  <p class="note">On Android, Chrome can write the sticker directly. On iPhone, write this link with a free app like NFC Tools; iPhones read link stickers without any app. The QR code does the same job for anyone without NFC.</p>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js" integrity="sha384-mZT2gIty7ZDdOGkxfP6joZcYdMW1Jvj9dRlfpTmaJAKKXTqzygtB22k7FLe+KZC1" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+const $ = id => document.getElementById(id);
+/* ---------- Storage (this browser only) ---------- */
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; } },
+};
+let log = store.get('tap-log', []);   // [{ t: slug, ts: ms }]
+let tags = store.get('tap-tags', {});  // { slug: { n, e, go } }
+const save = () => store.set('tap-log', log) && store.set('tap-tags', tags);
+
+const dayKey = ts => { const d = new Date(ts); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const slugify = s => s.toLowerCase().normalize('NFKD').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || 'tag';
+const base = () => location.origin + location.pathname;
+const tagUrl = (slug, t) => `${base()}#t=${encodeURIComponent(slug)}&n=${encodeURIComponent(t.n)}&e=${encodeURIComponent(t.e)}${t.go ? '&go=' + encodeURIComponent(t.go) : ''}`;
+
+function statsFor(slug) {
+  const mine = log.filter(x => x.t === slug), days = new Map();
+  for (const x of mine) days.set(dayKey(x.ts), (days.get(dayKey(x.ts)) || 0) + 1);
+  const today = dayKey(Date.now());
+  // Streak: consecutive days ending today (or yesterday, so it isn't broken before you've tapped today)
+  let streak = 0, d = new Date(); if (!days.has(today)) d.setDate(d.getDate() - 1);
+  while (days.has(dayKey(d))) { streak++; d.setDate(d.getDate() - 1); }
+  return { total: mine.length, today: days.get(today) || 0, streak, days, last: mine.at(-1)?.ts };
+}
+const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : Math.min(n % 10, 4) % 4] || 'th');
+
+/* ---------- Tap mode: the page a sticker opens ---------- */
+function handleTap(params) {
+  const slug = params.get('t'), t = { n: params.get('n') || slug, e: params.get('e') || '●', go: params.get('go') || '' };
+  tags[slug] = { ...tags[slug], ...t };
+  // Phones sometimes read a sticker twice; ignore a repeat within 10 seconds
+  const prev = log.at(-1), dup = prev && prev.t === slug && Date.now() - prev.ts < 10000;
+  const entry = dup ? prev : { t: slug, ts: Date.now() };
+  if (!dup) log.push(entry);
+  const saved = save();
+  history.replaceState(null, '', base()); // reloading must not log again
+
+  $('tap').hidden = false; document.title = `${t.n} · Tap Log`;
+  $('tapemo').textContent = t.e; $('tapname').textContent = t.n;
+  const s = statsFor(slug);
+  $('tapmeta').innerHTML = saved
+    ? `Logged. <strong>${ord(s.today)}</strong> today · <strong>${s.streak}</strong>-day streak · ${s.total} in total`
+    : `Couldn't save: this browser blocks storage here.`;
+
+  let timer = null;
+  if (t.go && /^https?:\/\//i.test(t.go)) {
+    let n = 3; const host = new URL(t.go).hostname;
+    $('tapgo').hidden = false; $('stay').hidden = false;
+    const tick = () => { $('tapgo').textContent = `Opening ${host} in ${n}…`; if (n-- <= 0) location.href = t.go; else timer = setTimeout(tick, 1000); };
+    tick();
+    $('stay').onclick = () => { clearTimeout(timer); $('tapgo').textContent = 'Staying here.'; $('stay').hidden = true; };
+  }
+  $('undo').onclick = () => {
+    clearTimeout(timer);
+    log = log.filter(x => x !== entry); save();
+    $('tapmeta').textContent = 'Undone. Nothing logged.'; $('tapgo').hidden = true; $('stay').hidden = true; $('undo').hidden = true;
+  };
+}
+
+/* ---------- Dashboard ---------- */
+function heatmap(days) {
+  const wrap = document.createElement('div'); wrap.className = 'heat';
+  const end = new Date(); end.setHours(0, 0, 0, 0);
+  // 12 weeks back, then on to the Monday before, so each row is one weekday
+  const start = new Date(end); start.setDate(start.getDate() - 7 * 12 + 1);
+  while ((start.getDay() + 6) % 7 !== 0) start.setDate(start.getDate() - 1);
+  const todayK = dayKey(end);
+  for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const k = dayKey(d), n = days.get(k) || 0, i = document.createElement('i');
+    i.dataset.n = Math.min(n, 3); i.title = `${k}: ${n}`;
+    if (k === todayK) i.className = 'today';
+    wrap.append(i);
+  }
+  wrap.setAttribute('role', 'img');
+  wrap.setAttribute('aria-label', `Last 12 weeks: tapped on ${[...days.keys()].filter(k => k >= dayKey(start)).length} days`);
+  return wrap;
+}
+
+function renderDash() {
+  const cards = $('cards'), slugs = Object.keys(tags);
+  if (!slugs.length) {
+    cards.innerHTML = '<p class="empty">No stickers yet. Make one above, write it to an NFC sticker or print its QR code, and tap away.</p>';
+  } else cards.replaceChildren(...slugs.map(slug => {
+    const t = tags[slug], s = statsFor(slug), c = document.createElement('article'); c.className = 'card';
+    c.innerHTML = `<div class="top"><span class="emo" aria-hidden="true"></span><div><b></b><span class="stats"><strong>${s.today}</strong> today · <strong>${s.streak}</strong>-day streak · ${s.total} total</span></div></div><div class="acts"></div>`;
+    c.querySelector('.emo').textContent = t.e; c.querySelector('b').textContent = t.n;
+    c.insertBefore(heatmap(s.days), c.querySelector('.acts'));
+    const acts = c.querySelector('.acts');
+    const mk = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = fn; acts.append(b); };
+    mk('Log now', () => { log.push({ t: slug, ts: Date.now() }); save(); renderDash(); });
+    mk('Sticker', () => openSticker(slug));
+    mk('Remove', () => { if (confirm(`Remove "${t.n}" and its ${s.total} taps?`)) { delete tags[slug]; log = log.filter(x => x.t !== slug); save(); renderDash(); } });
+    return c;
+  }));
+  const fmt = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  $('recent').replaceChildren(...log.slice(-15).reverse().map(x => {
+    const li = document.createElement('li'), t = tags[x.t] || { e: '●', n: x.t };
+    const name = document.createElement('span'); name.textContent = `${t.e} ${t.n}`;
+    const tm = document.createElement('time'); tm.dateTime = new Date(x.ts).toISOString(); tm.textContent = fmt.format(x.ts);
+    li.append(name, tm); return li;
+  }));
+  if (!log.length) $('recent').innerHTML = '<li class="note">Nothing yet.</li>';
+}
+
+/* ---------- Sticker dialog: link, QR, NFC write ---------- */
+const dlg = $('dlg');
+function openSticker(slug) {
+  const t = tags[slug], url = tagUrl(slug, t);
+  $('dlg-title').textContent = `${t.e} ${t.n}`;
+  $('url').textContent = url;
+  const bytes = new TextEncoder().encode(url).length;
+  $('fit').textContent = `${bytes} bytes. ${bytes <= 130 ? 'Fits any sticker (NTAG213 and up).' : bytes <= 480 ? 'Needs an NTAG215 or NTAG216 sticker.' : 'Too long for common stickers; use a shorter link.'}`;
+  const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+  $('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+  $('qr').firstElementChild.setAttribute('role', 'img'); $('qr').firstElementChild.setAttribute('aria-label', `QR code for the ${t.n} sticker`);
+  $('write').hidden = !('NDEFReader' in window);
+  $('writemsg').textContent = '';
+  $('write').onclick = async () => {
+    try {
+      $('writemsg').textContent = 'Hold the sticker to the back of your phone…';
+      await new NDEFReader().write({ records: [{ recordType: 'url', data: url }] });
+      $('writemsg').textContent = 'Written. Tap it to try.';
+    } catch (e) { $('writemsg').textContent = `Couldn't write: ${e.message}`; }
+  };
+  dlg.showModal();
+}
+$('dlgclose').onclick = () => dlg.close();
+if (!('closedBy' in HTMLDialogElement.prototype)) {
+  dlg.addEventListener('click', e => {
+    if (e.target !== dlg) return;
+    const r = dlg.getBoundingClientRect();
+    if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) dlg.close();
+  });
+}
+
+// Copy button (Invoker Commands, with a click fallback)
+const timers = new WeakMap();
+function report(button, ok) {
+  const tip = button.nextElementSibling;
+  clearTimeout(timers.get(button));
+  tip.textContent = '';
+  requestAnimationFrame(() => (tip.textContent = ok ? 'Copied' : 'Copy failed'));
+  timers.set(button, setTimeout(() => (tip.textContent = ''), 2000));
+}
+async function copy(button, target) {
+  try { await navigator.clipboard.writeText(target.innerText.trim()); report(button, true); } catch { report(button, false); }
+}
+if ('CommandEvent' in window) document.addEventListener('command', e => { if (e.command === '--copy') copy(e.source, e.target); }, true);
+else document.addEventListener('click', e => {
+  const b = e.target.closest('button[command="--copy"]'); if (!b) return;
+  const t = document.getElementById(b.getAttribute('commandfor')); if (t) copy(b, t);
+});
+
+/* ---------- Forms and data tools ---------- */
+$('newtag').addEventListener('submit', e => {
+  e.preventDefault();
+  const n = $('name').value.trim(), em = $('emoji').value.trim() || '●', go = $('go').value.trim();
+  let slug = slugify(n); while (tags[slug] && tags[slug].n !== n) slug += '-2';
+  tags[slug] = { n, e: em, go }; save(); renderDash(); openSticker(slug);
+  e.target.reset(); $('emoji').value = '☕';
+});
+$('export').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ tags, log }, null, 1)], { type: 'application/json' }));
+  a.download = `tap-log-${dayKey(Date.now())}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+$('import').onchange = async e => {
+  try {
+    const d = JSON.parse(await e.target.files[0].text());
+    if (!d.tags || !Array.isArray(d.log)) throw new Error('not a Tap Log export');
+    const seen = new Set(log.map(x => x.t + x.ts));
+    tags = { ...tags, ...d.tags }; log = [...log, ...d.log.filter(x => !seen.has(x.t + x.ts))].sort((a, b) => a.ts - b.ts);
+    save(); renderDash();
+  } catch (err) { alert(`Import failed: ${err.message}`); }
+  e.target.value = '';
+};
+$('clear').onclick = () => { if (confirm('Delete every sticker and tap on this device? This cannot be undone.')) { log = []; tags = {}; save(); renderDash(); } };
+
+/* ---------- Start ---------- */
+const params = new URLSearchParams(location.hash.slice(1));
+if (params.get('t')) handleTap(params); else { $('dash').hidden = false; renderDash(); }
+addEventListener('hashchange', () => location.reload());
+</script>
+</body>
+</html>
