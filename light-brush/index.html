@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Light Brush</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: setup (controls beside a preview of what the camera will catch); Run covers the screen in black and plays the image one slice at a time */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 32px;
+          grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  h1 { font: 400 clamp(52px, 8vw, 104px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); margin: 0 0 22px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }
+  legend, label { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
+  label { display: grid; gap: 6px; margin-bottom: 12px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  input[type=text], select { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; min-width: 0; }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  button, .file { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; display: inline-block; }
+  @media (hover: hover) and (pointer: fine) { button:hover, .file:hover { background: var(--fg); color: var(--bg); } }
+  button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; font-size: 16px; padding: 14px 22px; }
+  .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .file:focus-within { outline: 3px solid var(--acc); outline-offset: 2px; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .preview { background: #000; border: 3px solid var(--line); padding: 16px; display: grid; place-items: center; min-height: 240px; }
+  .preview canvas { max-width: 100%; height: auto; display: block; }
+  .facts { color: var(--dim); font-size: 12px; margin: 10px 0 0; }
+  .facts b { color: var(--fg); }
+  ol.tips { color: var(--dim); font-size: 12px; padding-left: 18px; margin: 18px 0 0; }
+  ol.tips li { margin-bottom: 4px; }
+  /* Run: full black, the brush band, countdown numbers */
+  #run { position: fixed; inset: 0; background: #000; display: none; z-index: 10; cursor: none; }
+  #run.on { display: block; }
+  #run canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #count { position: absolute; inset: 0; display: grid; place-items: center; font: 400 40vmin/1 var(--display); color: #fff; pointer-events: none; }
+  #runhint { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: #444; font-size: 12px; pointer-events: none; }
+  /* Touch baseline (same as the other pages) */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, .file { touch-action: manipulation; }
+  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  @media (pointer: coarse) { input, select { font-size: 16px !important; } button, .file { min-block-size: 44px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <a class="back" href="../">← Creative Lab</a>
+    <h1>Light<br>brush<span>.</span></h1>
+    <p class="lede">Paint pictures in the air. Set a camera to a long exposure, press Run, and walk the phone across the frame: the screen plays the image one slice at a time and the camera stitches it together.</p>
+
+    <fieldset><legend>Paint</legend><div class="seg" id="source"></div></fieldset>
+    <label id="textrow">Text <input type="text" id="text" value="HELLO" maxlength="32"></label>
+    <label id="colorrow">Colour <select id="color"><option value="white">White</option><option value="red">Red</option><option value="rainbow">Rainbow</option></select></label>
+    <div id="filerow" hidden><label class="file">Choose image<input type="file" id="file" accept="image/*"></label><p class="facts">Stays on this device.</p></div>
+    <label>Sweep time <span id="durv"></span><input type="range" id="dur" min="2" max="15" step="1" value="6"></label>
+    <label>Brush width <span id="bandv"></span><input type="range" id="band" min="5" max="100" step="5" value="40"></label>
+    <label>Brightness <span id="brightv"></span><input type="range" id="bright" min="10" max="100" step="5" value="100"></label>
+    <fieldset><legend>Walking</legend><div class="seg" id="dir"></div></fieldset>
+    <button type="button" class="primary" id="go">Run</button>
+    <ol class="tips">
+      <li>Dark room or night. Camera on a tripod, manual focus on where you'll walk.</li>
+      <li>Shutter = sweep time + 2 s, ISO 100, f/8. Start the exposure, then press Run.</li>
+      <li>Phone screen to full brightness, auto-brightness off. Hold it upright, screen to the camera.</li>
+      <li>Walk sideways at a steady pace for the whole sweep. A beep counts you in.</li>
+    </ol>
+  </div>
+  <div>
+    <div class="preview"><canvas id="prev" role="img" aria-label="What the camera will catch"></canvas></div>
+    <p class="facts" id="facts"></p>
+  </div>
+</div>
+
+<div id="run" role="dialog" aria-label="Painting. Tap to stop."><canvas id="stage"></canvas><div id="count"></div><div id="runhint">tap to stop</div></div>
+
+<script src="../parking/plot.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const state = { source: 'text', text: 'HELLO', color: 'white', dur: 6, band: 40, bright: 100, dir: 'ltr', image: null, seed: 1 };
+const H0 = 360; // source height in pixels; the screen stretches it to full height
+
+/* ---------- Sources: each returns a canvas, light on black ---------- */
+function paintColor(ctx, w) {
+  if (state.color === 'red') return '#ff2a12';
+  if (state.color === 'white') return '#ffffff';
+  const g = ctx.createLinearGradient(0, 0, w, 0);
+  ['#ff2a12', '#ff9a00', '#ffe600', '#2bd96b', '#1fb6ff', '#7a4dff', '#ff3bd1'].forEach((c, i, a) => g.addColorStop(i / (a.length - 1), c));
+  return g;
+}
+const SOURCES = {
+  text: { label: 'Text', make() {
+    const c = document.createElement('canvas'), x = c.getContext('2d'), size = H0 * .78, t = (state.text || ' ').toUpperCase();
+    x.font = `400 ${size}px Anton`; const w = Math.ceil(x.measureText(t).width + H0 * .3);
+    c.width = w; c.height = H0; x.fillStyle = '#000'; x.fillRect(0, 0, w, H0);
+    x.font = `400 ${size}px Anton`; x.textBaseline = 'middle'; x.fillStyle = paintColor(x, w); x.fillText(t, H0 * .15, H0 * .52);
+    return c;
+  } },
+  parking: { label: 'Parking', make() {
+    // One Perfect Parking manoeuvre, cropped to its lines: cars in white, corner traces in red
+    const o = { layout: 'grid', paper: 'A4', pens: 2, ghosts: 10, count: 1, seed: state.seed };
+    const r = build(o), all = [...r.pen1, ...r.pen2]; let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const l of all) for (const [x, y] of l) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    const pad = 12, s = (H0 - 2 * pad) / (y1 - y0), w = Math.ceil((x1 - x0) * s + 2 * pad);
+    const c = document.createElement('canvas'); c.width = w; c.height = H0; const x = c.getContext('2d');
+    x.fillStyle = '#000'; x.fillRect(0, 0, w, H0); x.lineCap = x.lineJoin = 'round';
+    const stroke = (lines, col, lw) => { x.strokeStyle = col; x.lineWidth = lw; for (const l of lines) { x.beginPath(); l.forEach(([px, py], i) => { const X = pad + (px - x0) * s, Y = pad + (py - y0) * s; i ? x.lineTo(X, Y) : x.moveTo(X, Y); }); x.stroke(); } };
+    stroke(r.pen1, '#ffffff', 2.5); stroke(r.pen2, '#ff2a12', 4);
+    return c;
+  } },
+  stripes: { label: 'Hazard', make() {
+    const w = H0 * 4, c = document.createElement('canvas'); c.width = w; c.height = H0; const x = c.getContext('2d');
+    x.fillStyle = '#000'; x.fillRect(0, 0, w, H0); x.fillStyle = paintColor(x, w);
+    for (let i = -H0; i < w + H0; i += 90) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 45, 0); x.lineTo(i + 45 - H0, H0); x.lineTo(i - H0, H0); x.closePath(); x.fill(); }
+    return c;
+  } },
+  wave: { label: 'Sine', make() {
+    const w = H0 * 5, c = document.createElement('canvas'); c.width = w; c.height = H0; const x = c.getContext('2d');
+    x.fillStyle = '#000'; x.fillRect(0, 0, w, H0); x.strokeStyle = paintColor(x, w); x.lineWidth = 14; x.lineCap = 'round';
+    for (const [amp, ph, k] of [[.36, 0, 1], [.22, 1.6, 2], [.12, 3.1, 3]]) { x.beginPath(); for (let i = 0; i <= w; i += 4) { const y = H0 / 2 + Math.sin(i / w * Math.PI * 2 * 3 * k + ph) * H0 * amp; i ? x.lineTo(i, y) : x.moveTo(i, y); } x.stroke(); }
+    return c;
+  } },
+  bars: { label: 'Bars', make() {
+    const n = 48, bw = 26, w = n * bw, c = document.createElement('canvas'); c.width = w; c.height = H0; const x = c.getContext('2d');
+    x.fillStyle = '#000'; x.fillRect(0, 0, w, H0); x.fillStyle = paintColor(x, w);
+    let seed = state.seed; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let i = 0; i < n; i++) { const h = H0 * (.15 + .8 * Math.abs(Math.sin(i * .35)) * (.6 + .4 * rnd())); x.fillRect(i * bw + 4, (H0 - h) / 2, bw - 8, h); }
+    return c;
+  } },
+  image: { label: 'Image', make() {
+    if (!state.image) { const c = document.createElement('canvas'); c.width = H0; c.height = H0; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, H0, H0); x.fillStyle = '#555'; x.font = '24px "Space Mono"'; x.textAlign = 'center'; x.fillText('choose an image', H0 / 2, H0 / 2); return c; }
+    const im = state.image, w = Math.round(im.width * H0 / im.height), c = document.createElement('canvas'); c.width = w; c.height = H0;
+    c.getContext('2d').drawImage(im, 0, 0, w, H0); return c;
+  } },
+};
+
+/* ---------- Preview and facts ---------- */
+let src = null;
+async function update() {
+  await document.fonts.load(`400 80px Anton`);
+  src = SOURCES[state.source].make();
+  const p = $('prev'); p.width = src.width; p.height = src.height;
+  const x = p.getContext('2d'); x.globalAlpha = state.bright / 100; x.drawImage(src, 0, 0); x.globalAlpha = 1;
+  $('textrow').hidden = state.source !== 'text'; $('colorrow').hidden = !['text', 'stripes', 'wave', 'bars'].includes(state.source); $('filerow').hidden = state.source !== 'image';
+  $('durv').textContent = `${state.dur} s`; $('bandv').textContent = `${state.band}% of the screen`; $('brightv').textContent = `${state.bright}%`;
+  const pace = 1.1; // metres per second, a slow walk
+  $('facts').innerHTML = `Walk about <b>${(pace * state.dur).toFixed(1)} m</b> in <b>${state.dur} s</b>. Set the shutter to <b>${state.dur + 2} s</b>. ${src.width} slices, ${Math.round(src.width / state.dur)} per second.`;
+}
+
+/* ---------- Running ---------- */
+let actx = null, raf = 0, lock = null, running = false;
+function beep(f, len = .09) {
+  try { actx ||= new AudioContext(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = f; g.gain.setValueAtTime(.25, actx.currentTime); g.gain.exponentialRampToValueAtTime(.001, actx.currentTime + len); o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + len); } catch {}
+}
+// Draw the slice at progress t (0..1) as a band in the middle of the screen
+function frame(ctx, W, H, t) {
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  const col = Math.min(src.width - 1, Math.floor((state.dir === 'ltr' ? t : 1 - t) * src.width));
+  const bw = Math.max(2, Math.round(W * state.band / 100));
+  ctx.globalAlpha = state.bright / 100; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, col, 0, 1, src.height, (W - bw) / 2, 0, bw, H);
+  ctx.globalAlpha = 1;
+}
+async function run() {
+  running = true; $('run').classList.add('on');
+  try { await document.documentElement.requestFullscreen?.(); } catch {}
+  try { lock = await navigator.wakeLock?.request('screen'); } catch {}
+  const st = $('stage'), dpr = Math.min(2, devicePixelRatio || 1); st.width = innerWidth * dpr; st.height = innerHeight * dpr;
+  const ctx = st.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, st.width, st.height);
+  for (const n of [3, 2, 1]) { if (!running) return; $('count').textContent = n; beep(660); await new Promise(r => setTimeout(r, 1000)); }
+  $('count').textContent = ''; $('runhint').hidden = true; beep(1320, .18); navigator.vibrate?.(60);
+  const t0 = performance.now(), ms = state.dur * 1000;
+  const step = now => {
+    if (!running) return;
+    const t = (now - t0) / ms;
+    if (t >= 1) { ctx.fillStyle = '#000'; ctx.fillRect(0, 0, st.width, st.height); beep(440, .25); setTimeout(stop, 600); return; }
+    frame(ctx, st.width, st.height, t); raf = requestAnimationFrame(step);
+  };
+  raf = requestAnimationFrame(step);
+}
+function stop() {
+  running = false; cancelAnimationFrame(raf); $('run').classList.remove('on'); $('count').textContent = ''; $('runhint').hidden = false;
+  lock?.release().catch(() => {}); lock = null; if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  $('go').focus();
+}
+$('run').addEventListener('pointerdown', stop);
+document.addEventListener('keydown', e => { if (running && (e.key === 'Escape' || e.key === ' ')) { e.preventDefault(); stop(); } });
+
+/* ---------- Controls ---------- */
+const seg = (el, key, opts, after) => {
+  for (const [v, label] of opts) {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.dataset.v = v;
+    b.onclick = () => { if (state[key] === v && key === 'source' && ['parking', 'bars'].includes(v)) state.seed++; state[key] = v; sync(); update(); after?.(); };
+    $(el).append(b);
+  }
+};
+seg('source', 'source', Object.entries(SOURCES).map(([k, s]) => [k, s.label]));
+seg('dir', 'dir', [['ltr', 'Left → right'], ['rtl', 'Right → left']]);
+function sync() {
+  for (const k of ['source', 'dir']) $(k).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state[k])));
+  $('dur').value = state.dur; $('band').value = state.band; $('bright').value = state.bright; $('text').value = state.text; $('color').value = state.color;
+}
+$('text').oninput = e => { state.text = e.target.value; update(); };
+$('color').onchange = e => { state.color = e.target.value; update(); };
+$('dur').oninput = e => { state.dur = +e.target.value; update(); };
+$('band').oninput = e => { state.band = +e.target.value; update(); };
+$('bright').oninput = e => { state.bright = +e.target.value; update(); };
+$('file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { state.image = await createImageBitmap(f); state.source = 'image'; sync(); update(); } catch { alert('Could not open that image.'); } };
+$('go').onclick = run;
+sync(); update();
+</script>
+</body>
+</html>
