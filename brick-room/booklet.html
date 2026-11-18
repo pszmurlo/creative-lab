@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brick Booklet</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: a toolbar, then A4 pages (cover, inventory, a page per bag, a page per step). Printing drops the toolbar. */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .bar { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 3px solid var(--line); padding: 12px max(16px, 3vw);
+         display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  .bar a.back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  .bar b { font: 400 26px/1 var(--display); text-transform: uppercase; margin-right: auto; }
+  select { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 6px 8px; border-radius: 0; }
+  label.inline { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } .bar a.back:hover { color: var(--acc); } }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .status { font-size: 12px; color: var(--dim); }
+  .pages { display: grid; gap: 24px; justify-content: center; padding: 24px 12px 64px; overflow-x: auto; }
+
+  /* A4 page */
+  .page { width: 210mm; height: 297mm; box-sizing: border-box; padding: 14mm; background: #fff; color: #111; position: relative; overflow: hidden;
+          box-shadow: 0 14px 30px -18px rgb(0 0 0 / .5); display: flex; flex-direction: column; }
+  .page .foot { position: absolute; bottom: 8mm; left: 14mm; right: 14mm; display: flex; justify-content: space-between; font-size: 9pt; color: #6b6862; }
+  .page img.render { width: 100%; flex: 1; min-height: 0; object-fit: contain; }
+  .cover h1 { font: 400 64pt/.85 var(--display); text-transform: uppercase; margin: 0 0 4mm; }
+  .cover h1 span { color: #ff3b1f; }
+  .cover .meta { display: flex; gap: 10mm; font-size: 11pt; margin-bottom: 6mm; }
+  .cover .meta b { display: block; font: 400 28pt/1 var(--display); }
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; }
+  .stepno { font: 400 72pt/.85 var(--display); }
+  .bagtag { font: 700 10pt var(--mono); letter-spacing: .12em; text-transform: uppercase; border: 2px solid #111; padding: 1mm 3mm; }
+  .callout { border: 2px solid #111; padding: 3mm; display: grid; grid-template-columns: repeat(auto-fill, 26mm); gap: 2mm 3mm; max-width: 120mm; }
+  .part { display: grid; justify-items: center; font-size: 8pt; text-align: center; }
+  .part img { width: 22mm; height: 22mm; object-fit: contain; }
+  .part b { font: 700 11pt var(--mono); }
+  .inv { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3mm; align-content: start; }
+  .inv .part img { width: 24mm; height: 24mm; }
+  h2 { font: 400 30pt/1 var(--display); text-transform: uppercase; margin: 0 0 5mm; }
+  .bag h2 { font-size: 54pt; }
+  .bag .callout { max-width: none; grid-template-columns: repeat(6, 1fr); }
+  .note { font-size: 9pt; color: #6b6862; }
+
+  /* Touch baseline (same as the other pages) */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a { touch-action: manipulation; }
+  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  @media (pointer: coarse) { select { font-size: 16px !important; } button { min-block-size: 44px; } }
+  @page { size: A4 portrait; margin: 0; }
+  @media print {
+    body { background: #fff; }
+    .bar { display: none; }
+    .pages { display: block; padding: 0; overflow: visible; }
+    .page { box-shadow: none; break-after: page; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <a class="back" href="./">← Brick Room</a>
+  <b>Booklet</b>
+  <select id="model" aria-label="Model"></select>
+  <label class="inline">Bag size <select id="bagsize"><option value="60">small (~60)</option><option value="100" selected>medium (~100)</option><option value="160">large (~160)</option></select></label>
+  <label class="inline"><input type="checkbox" id="withbase"> include baseplate in orders</label>
+  <button type="button" class="primary" id="print">Print / PDF</button>
+  <button type="button" id="xml">BrickLink list</button>
+  <button type="button" id="csv">CSV</button>
+  <span class="status" id="status" role="status"></span>
+</div>
+<div class="pages" id="pages"></div>
+
+<script src="models.js"></script>
+<script src="render.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const MAX_STEP = 30; // a step with more parts is split front to back
+
+/* ---------- Part numbers (BrickLink) ---------- */
+// Design IDs for each kind and size; colours mapped to BrickLink colour IDs. Check them before you order.
+const PART_IDS = {
+  brick: { '1x1': '3005', '1x2': '3004', '1x3': '3622', '1x4': '3010', '1x6': '3009', '1x8': '3008', '2x2': '3003', '2x3': '3002', '2x4': '3001', '2x6': '2456', '2x8': '3007' },
+  plate: { '1x1': '3024', '1x2': '3023', '1x3': '3623', '1x4': '3710', '1x6': '3666', '1x8': '3460', '2x2': '3022', '2x3': '3021', '2x4': '3020', '2x6': '3795', '2x8': '3034' },
+  tile: { '1x1': '3070b', '1x2': '3069b', '1x3': '63864', '1x4': '2431', '1x6': '6636', '1x8': '4162', '2x2': '3068b', '2x3': '26603', '2x4': '87079', '2x6': '69729' },
+};
+const SUBSTITUTE = { 'tile|2x8': [['tile', '2x4', 2]] }; // no standard 2 × 8 tile: use two 2 × 4
+const BL_COLORS = { white: 1, lightgray: 86, darkgray: 85, black: 11, red: 5, yellow: 3, blue: 7, darkblue: 63, green: 6, lime: 34,
+                    tan: 2, darktan: 69, brown: 88, orange: 4, sandgreen: 48, pink: 104, lightblue: 105 };
+const BASEPLATES = { '32 × 32': '3811', '48 × 48': '4186' };
+
+// Order lines: { kind, size, id, color, qty, note }
+function orderLines(m, withBase) {
+  const lines = new Map();
+  const add = (kind, size, c, n, note = '') => { const k = `${kind}|${size}|${c}`; const e = lines.get(k) || { kind, size, color: c, qty: 0, id: PART_IDS[kind]?.[size], note }; e.qty += n; lines.set(k, e); };
+  for (const { b, n } of partsList(m.bricks)) {
+    const size = `${Math.min(b.w, b.d)}x${Math.max(b.w, b.d)}`, sub = SUBSTITUTE[`${b.kind}|${size}`];
+    if (sub) for (const [k, s, mult] of sub) add(k, s, b.c, n * mult, `instead of ${n} × ${b.kind} ${size}`);
+    else add(b.kind, size, b.c, n);
+  }
+  if (withBase) { const base = m.base || '32 × 32'; lines.set('base', { kind: 'baseplate', size: base.replace(/ /g, ''), color: 'lightgray', qty: 1, id: BASEPLATES[base], note: 'baseplate' }); }
+  return [...lines.values()];
+}
+function download(name, text, type) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+/* ---------- Steps, sub-steps and bags ---------- */
+// Each height is a step; big ones are split back to front into chunks of at most MAX_STEP parts
+function pages(m) {
+  const out = [];
+  for (const z of buildSteps(m)) {
+    const idx = m.bricks.map((b, i) => [b, i]).filter(([b]) => b.z === z).sort(([a], [b]) => (a.y + a.x / 100) - (b.y + b.x / 100)).map(([, i]) => i);
+    const n = Math.ceil(idx.length / MAX_STEP);
+    for (let k = 0; k < n; k++) out.push({ z, parts: idx.slice(Math.round(k * idx.length / n), Math.round((k + 1) * idx.length / n)) });
+  }
+  return out;
+}
+function bags(steps, target) {
+  const out = []; let cur = null;
+  for (const [i, s] of steps.entries()) {
+    if (!cur || (cur.count >= target * .6 && cur.count + s.parts.length > target)) { cur = { steps: [], count: 0 }; out.push(cur); }
+    cur.steps.push(i); cur.count += s.parts.length;
+  }
+  return out;
+}
+
+/* ---------- Pictures ---------- */
+const icons = new Map();
+function partIcon(b) { // one part on its own, drawn by the same renderer
+  const key = `${b.kind}|${Math.min(b.w, b.d)}x${Math.max(b.w, b.d)}|${b.c}`;
+  if (!icons.has(key)) {
+    const w = Math.max(b.w, b.d), d = Math.min(b.w, b.d), c = document.createElement('canvas'); c.width = c.height = 220;
+    drawModel(c.getContext('2d'), 220, { w, d, bricks: [{ x: 0, y: 0, z: 0, w, d, h: b.h, c: b.c, kind: b.kind }] }, { all: true, bg: '#ffffff' });
+    icons.set(key, c.toDataURL('image/png'));
+  }
+  return icons.get(key);
+}
+function render(m, o) { const c = document.createElement('canvas'); c.width = c.height = 1100; drawModel(c.getContext('2d'), 1100, m, { bg: '#ffffff', ...o }); return c.toDataURL('image/jpeg', .9); }
+function partsHtml(list) {
+  return partsList(list).map(({ b, n }) => `<div class="part"><img src="${partIcon(b)}" alt=""><b>${n}×</b><span>${COLORS[b.c][0]} ${partName(b)}</span></div>`).join('');
+}
+
+/* ---------- Booklet ---------- */
+function build() {
+  const mi = +$('model').value, m = MODELS[mi], steps = pages(m), bs = bags(steps, +$('bagsize').value);
+  const bagOf = new Map(); bs.forEach((bag, bi) => bag.steps.forEach(s => bagOf.set(s, bi)));
+  const html = [];
+  const foot = (left, n) => `<div class="foot"><span>${left}</span><span>${n}</span></div>`;
+  let pageNo = 1;
+  // Cover
+  html.push(`<section class="page cover"><h1>${m.name.replace(/</g, '&lt;')}<span>.</span></h1>
+    <div class="meta"><div><b>${m.bricks.length}</b>parts</div><div><b>${steps.length}</b>steps</div><div><b>${bs.length}</b>bags</div><div><b>${m.base || '32 × 32'}</b>baseplate</div></div>
+    <p class="note">${m.note.replace(/</g, '&lt;')}</p>
+    <img class="render" src="${render(m, { all: true })}" alt="The finished model">${foot('Brick Room · creative lab', pageNo++)}</section>`);
+  // Inventory, 30 parts a page
+  const inv = partsList(m.bricks);
+  for (let i = 0; i < inv.length; i += 30) {
+    html.push(`<section class="page"><h2>Inventory${inv.length > 30 ? ` ${i / 30 + 1}/${Math.ceil(inv.length / 30)}` : ''}</h2>
+      <div class="inv">${inv.slice(i, i + 30).map(({ b, n }) => `<div class="part"><img src="${partIcon(b)}" alt=""><b>${n}×</b><span>${COLORS[b.c][0]} ${partName(b)}</span></div>`).join('')}</div>
+      <p class="note" style="margin-top:auto">Plus a ${m.base || '32 × 32'} baseplate. ${inv.length} different parts, ${m.bricks.length} in all.</p>${foot('Inventory', pageNo++)}</section>`);
+  }
+  // Bags and steps
+  const before = new Set();
+  bs.forEach((bag, bi) => {
+    const bagParts = bag.steps.flatMap(s => steps[s].parts).map(i => m.bricks[i]);
+    html.push(`<section class="page bag"><span class="bagtag">Bag ${bi + 1} of ${bs.length}</span><h2 style="margin-top:6mm">Bag ${bi + 1}</h2>
+      <p class="note">Steps ${bag.steps[0] + 1}–${bag.steps.at(-1) + 1} · ${bagParts.length} parts. Sort these into one bag before you start.</p>
+      <div class="callout">${partsHtml(bagParts)}</div>${foot(`Bag ${bi + 1}`, pageNo++)}</section>`);
+    for (const s of bag.steps) {
+      const st = steps[s], now = new Set(st.parts);
+      const img = render(m, { show: b => before.has(b.i) || now.has(b.i), fresh: b => now.has(b.i) });
+      html.push(`<section class="page"><div class="head"><div><div class="stepno">${s + 1}</div><span class="bagtag">Bag ${bi + 1}</span></div>
+        <div class="callout">${partsHtml(st.parts.map(i => m.bricks[i]))}</div></div>
+        <img class="render" src="${img}" alt="Step ${s + 1}: add ${st.parts.length} parts">${foot(`${m.name} · step ${s + 1} of ${steps.length}`, pageNo++)}</section>`);
+      st.parts.forEach(i => before.add(i));
+    }
+  });
+  $('pages').innerHTML = html.join('');
+  $('status').textContent = `${pageNo - 1} pages · ${steps.length} steps in ${bs.length} bags`;
+  history.replaceState(null, '', `#m=${mi}&bag=${$('bagsize').value}`);
+}
+
+/* ---------- Controls ---------- */
+MODELS.forEach((m, i) => $('model').add(new Option(m.name, i)));
+const h = new URLSearchParams(location.hash.slice(1));
+if (MODELS[+h.get('m')]) $('model').value = h.get('m');
+if (['60', '100', '160'].includes(h.get('bag'))) $('bagsize').value = h.get('bag');
+$('model').onchange = build; $('bagsize').onchange = build;
+$('print').onclick = () => print();
+const slug = () => MODELS[+$('model').value].name.toLowerCase().replace(/\W+/g, '-');
+$('xml').onclick = () => {
+  const lines = orderLines(MODELS[+$('model').value], $('withbase').checked);
+  const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<INVENTORY>\n' + lines.filter(l => l.id).map(l =>
+    `  <ITEM><ITEMTYPE>P</ITEMTYPE><ITEMID>${l.id}</ITEMID><COLOR>${BL_COLORS[l.color]}</COLOR><MINQTY>${l.qty}</MINQTY></ITEM>`).join('\n') + '\n</INVENTORY>\n';
+  download(`${slug()}-bricklink.xml`, xml, 'application/xml');
+  const missing = lines.filter(l => !l.id).length;
+  $('status').textContent = missing ? `${missing} line(s) have no part number; see the CSV.` : `BrickLink list: ${lines.length} lines. Paste it into Wanted List → Upload.`;
+};
+$('csv').onclick = () => {
+  const lines = orderLines(MODELS[+$('model').value], $('withbase').checked);
+  const csv = 'qty,part,description,colour,bricklink_colour_id,note\n' + lines.map(l => [l.qty, l.id || '', `${l.kind} ${l.size.replace('x', ' x ')}`, COLORS[l.color][0], BL_COLORS[l.color], l.note].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n') + '\n';
+  download(`${slug()}-parts.csv`, csv, 'text/csv');
+};
+document.fonts.ready.then(build);
+</script>
+</body>
+</html>
