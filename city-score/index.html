@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>City Score</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: controls on the left, the block as a top-down score with a moving playhead on the right; stacks on narrow screens */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; display: grid; gap: 32px;
+          grid-template-columns: minmax(0, 340px) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  h1 { font: 400 clamp(52px, 7vw, 92px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); margin: 0 0 22px; }
+  form, fieldset { display: grid; gap: 8px; margin: 0 0 16px; border: 0; padding: 0; }
+  label, legend { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  input[type=search], select { flex: 1; min-width: 0; font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
+  .presets button { padding: 6px 8px; font-size: 11px; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .status { min-height: 1.5em; color: var(--dim); font-size: 12px; }
+  .status.err { color: var(--acc); }
+  .stagewrap { position: sticky; top: 16px; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 3px solid var(--line); background: var(--field); }
+  .caption { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; margin-top: 10px; }
+  .caption b { font: 400 34px/1 var(--display); text-transform: uppercase; }
+  .caption span { color: var(--dim); font-size: 12px; text-align: right; }
+  .credit { color: var(--dim); font-size: 11px; margin-top: 18px; }
+  .credit a { color: inherit; }
+  .legend { color: var(--dim); font-size: 12px; margin: 0 0 16px; padding-left: 18px; }
+  /* Touch baseline (same as the other pages) */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a { touch-action: manipulation; }
+  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  @media (pointer: coarse) { input, select { font-size: 16px !important; } button { min-block-size: 44px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <a class="back" href="../">← Creative Lab</a>
+    <h1>City<br>score<span>.</span></h1>
+    <p class="lede">A city block played as music. A playhead sweeps across the map; every building it reaches rings a note.</p>
+    <ul class="legend">
+      <li>Taller building, lower note</li>
+      <li>Bigger footprint, louder</li>
+      <li>Where it stands, left or right in your ears</li>
+      <li>Roads tick, parks and water hum</li>
+    </ul>
+
+    <form id="search">
+      <label for="q">Place</label>
+      <div class="row">
+        <input id="q" type="search" placeholder="Street, square, landmark…" autocomplete="off" required>
+        <button type="submit">Go</button>
+      </div>
+      <div class="row presets" id="presets"></div>
+    </form>
+
+    <fieldset>
+      <legend>Size</legend>
+      <select id="radius" aria-label="Size of the block">
+        <option value="120">Corner · 240 m</option>
+        <option value="200" selected>Block · 400 m</option>
+        <option value="320">Quarter · 640 m</option>
+      </select>
+    </fieldset>
+    <fieldset><legend>Sweep</legend><div class="row" id="sweep"></div></fieldset>
+    <fieldset>
+      <legend>Scale and length</legend>
+      <div class="row">
+        <select id="scale" aria-label="Musical scale"></select>
+        <select id="length" aria-label="Length">
+          <option value="12">12 s</option><option value="20" selected>20 s</option><option value="32">32 s</option>
+        </select>
+      </div>
+    </fieldset>
+    <div class="row">
+      <button type="button" class="primary" id="play" disabled>Play</button>
+      <button type="button" id="wav" disabled>Save WAV</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+    <p class="credit">Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, tiles from <a href="https://openfreemap.org">OpenFreeMap</a>, search by <a href="https://nominatim.org">Nominatim</a>. Same map loader as <a href="../diorama/">Street Diorama</a>.</p>
+  </div>
+
+  <div class="stagewrap">
+    <canvas id="c" role="img" aria-label="Top-down map of the block"></canvas>
+    <div class="caption"><b id="cname"></b><span id="cmeta"></span></div>
+  </div>
+</div>
+
+<script src="../diorama/osm.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const state = { lat: 52.2497, lon: 21.0122, name: 'Warsaw Old Town', R: 200, sweep: 'we', scale: 'penta', len: 20, data: null };
+
+/* ---------- Turning the map into a score ---------- */
+const SCALES = {
+  penta: { label: 'Pentatonic', steps: [0, 2, 4, 7, 9] },
+  minor: { label: 'Minor pentatonic', steps: [0, 3, 5, 7, 10] },
+  dorian: { label: 'Dorian', steps: [0, 2, 3, 5, 7, 9, 10] },
+  whole: { label: 'Whole tone', steps: [0, 2, 4, 6, 8, 10] },
+};
+const SWEEPS = { we: 'West → East', sn: 'South → North', ripple: 'Ripple' };
+const GRID = 64; // playhead steps per pass
+
+function pip(rings, x, y) { // even-odd point in polygon over all rings
+  let inside = false;
+  for (const r of rings) for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    const [xi, yi] = r[i], [xj, yj] = r[j];
+    if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+// Position of a point along the sweep (0 at start, 1 at end) and across it (-1 left, 1 right)
+function along(x, y, R, sweep) {
+  if (sweep === 'we') return [(x + R) / (2 * R), -y / R];
+  if (sweep === 'sn') return [(y + R) / (2 * R), x / R];
+  return [Math.hypot(x, y) / (R * Math.SQRT2), Math.cos(Math.atan2(y, x))];
+}
+
+function score(d, o) {
+  const R = d.R, step = o.len / GRID, sc = SCALES[o.scale].steps;
+  const notesTotal = sc.length * 3; // three octaves, tallest building lowest
+  const maxH = Math.max(12, ...d.buildings.map(b => b.h));
+  const notes = [];
+  for (const b of d.buildings) {
+    let t0 = 1, t1 = 0, area = 0;
+    for (const [x, y] of b.rings[0]) { const [t] = along(x, y, R, o.sweep); t0 = Math.min(t0, t); t1 = Math.max(t1, t); }
+    const r = b.rings[0]; for (let i = 0, j = r.length - 1; i < r.length; j = i++) area += (r[j][0] - r[i][0]) * (r[j][1] + r[i][1]);
+    area = Math.abs(area / 2);
+    if (area < 12) continue; // sheds and slivers
+    const hn = Math.log(Math.max(3, b.h) / 3) / Math.log(maxH / 3); // 0 low-rise .. 1 tallest
+    const idx = Math.round((1 - hn) * (notesTotal - 1));
+    const midi = 45 + Math.floor(idx / sc.length) * 12 + sc[idx % sc.length]; // from A2 upward
+    const [, pan] = along(b.cx, b.cy, R, o.sweep);
+    const s = Math.round(Math.max(0, t0) * GRID);
+    notes.push({ b, s, t: s * step, dur: Math.min(2.4, Math.max(.18, (t1 - t0) * o.len)), midi, vel: Math.min(1, .18 + Math.sqrt(area) / 60), pan: Math.max(-1, Math.min(1, pan)) });
+  }
+  // Keep it playable: per step and pitch only the loudest, and at most four notes per step
+  const byStep = new Map();
+  for (const n of notes) { const k = n.s; (byStep.get(k) || byStep.set(k, []).get(k)).push(n); }
+  const kept = [];
+  for (const list of byStep.values()) {
+    const seen = new Map(); for (const n of list) if (!seen.has(n.midi) || seen.get(n.midi).vel < n.vel) seen.set(n.midi, n);
+    kept.push(...[...seen.values()].sort((a, b) => b.vel - a.vel).slice(0, 4));
+  }
+  // Road ticks: one per step where a bigger road crosses the playhead
+  const ticks = new Set();
+  for (const r of d.roads) {
+    if (!['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'minor'].includes(r.cls)) continue;
+    const [ta] = along(r.a[0], r.a[1], R, o.sweep), [tb] = along(r.b[0], r.b[1], R, o.sweep);
+    for (let s = Math.ceil(Math.min(ta, tb) * GRID); s <= Math.floor(Math.max(ta, tb) * GRID); s++) if (s % 2 === 0) ticks.add(s);
+  }
+  // Green and water: how much of the playhead is over them at each step
+  const pad = Array.from({ length: GRID }, (_, s) => {
+    let g = 0, w = 0; const n = 24;
+    for (let i = 0; i < n; i++) {
+      const u = -R + (i + .5) * 2 * R / n, t = (s + .5) / GRID;
+      const [x, y] = o.sweep === 'we' ? [-R + t * 2 * R, u] : o.sweep === 'sn' ? [u, -R + t * 2 * R]
+        : (() => { const rr = t * R * Math.SQRT2, a = (i / n) * Math.PI * 2; return [rr * Math.cos(a), rr * Math.sin(a)]; })();
+      if (Math.abs(x) > R || Math.abs(y) > R) continue;
+      if (d.green.some(r => pip(r, x, y))) g++; else if (d.water.some(r => pip(r, x, y))) w++;
+    }
+    return { g: g / n, w: w / n };
+  });
+  return { notes: kept.sort((a, b) => a.t - b.t), ticks: [...ticks].sort((a, b) => a - b), pad, step, rootMidi: 45 + sc[0] };
+}
+
+/* ---------- Sound: rendered offline once, then looped live or saved as WAV ---------- */
+const hz = m => 440 * 2 ** ((m - 69) / 12);
+function reverbIR(ctx, secs = 2.6) {
+  const len = Math.floor(ctx.sampleRate * secs), buf = ctx.createBuffer(2, len, ctx.sampleRate);
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (rnd() * 2 - 1) * (1 - i / len) ** 2.6; }
+  return buf;
+}
+async function render(sc, o) {
+  const rate = 44100, tail = 3, ctx = new OfflineAudioContext(2, Math.ceil((o.len + tail) * rate), rate);
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -16; comp.ratio.value = 4; comp.connect(ctx.destination);
+  const dry = ctx.createGain(); dry.gain.value = .8; dry.connect(comp);
+  const verb = ctx.createConvolver(); verb.buffer = reverbIR(ctx); const wet = ctx.createGain(); wet.gain.value = .32; verb.connect(wet).connect(comp);
+  const bus = ctx.createGain(); bus.connect(dry); bus.connect(verb);
+
+  // Buildings: a soft mallet (triangle + a quiet bell partial), brighter when louder
+  for (const n of sc.notes) {
+    const t = n.t, f = hz(n.midi), g = ctx.createGain(), p = ctx.createStereoPanner(), lp = ctx.createBiquadFilter();
+    p.pan.value = n.pan * .8; lp.type = 'lowpass'; lp.frequency.value = 900 + 3200 * n.vel;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.22 * n.vel, t + .008); g.gain.exponentialRampToValueAtTime(.0005, t + n.dur + .5);
+    const o1 = ctx.createOscillator(); o1.type = 'triangle'; o1.frequency.value = f;
+    const o2 = ctx.createOscillator(); o2.frequency.value = f * 2.76; const g2 = ctx.createGain(); g2.gain.value = .18;
+    o1.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(p).connect(bus);
+    for (const osc of [o1, o2]) { osc.start(t); osc.stop(t + n.dur + .6); }
+  }
+  // Roads: short filtered noise ticks
+  const noise = ctx.createBuffer(1, rate * .05, rate); { const d = noise.getChannelData(0); let s = 3; for (let i = 0; i < d.length; i++) d[i] = ((s = (s * 16807) % 2147483647) / 2147483647 * 2 - 1) * (1 - i / d.length) ** 3; }
+  for (const s of sc.ticks) {
+    const src = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noise; hp.type = 'highpass'; hp.frequency.value = 6000; g.gain.value = .12;
+    src.connect(hp).connect(g).connect(bus); src.start(s * sc.step);
+  }
+  // Parks and water: a drone on the root and fifth that swells with how much green or water is under the playhead
+  const padOut = ctx.createGain(); padOut.connect(bus);
+  const lpPad = ctx.createBiquadFilter(); lpPad.type = 'lowpass'; lpPad.frequency.value = 700; lpPad.connect(padOut);
+  padOut.gain.setValueAtTime(0, 0);
+  sc.pad.forEach((v, s) => padOut.gain.linearRampToValueAtTime(.09 * Math.min(1, (v.g + v.w) * 2.2), (s + .5) * sc.step));
+  padOut.gain.linearRampToValueAtTime(0, o.len + .5);
+  for (const [m, det] of [[sc.rootMidi - 12, -6], [sc.rootMidi - 12, 6], [sc.rootMidi - 5, 0]]) {
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth'; osc.frequency.value = hz(m); osc.detune.value = det;
+    const g = ctx.createGain(); g.gain.value = .33; osc.connect(g).connect(lpPad); osc.start(0); osc.stop(o.len + 1);
+  }
+  // Normalise so quiet blocks and busy ones come out at the same level (peak −1 dBFS)
+  const out = await ctx.startRendering();
+  let peak = 0; for (let c = 0; c < out.numberOfChannels; c++) for (const v of out.getChannelData(c)) peak = Math.max(peak, Math.abs(v));
+  if (peak > 0) { const k = .89 / peak; for (let c = 0; c < out.numberOfChannels; c++) { const d = out.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] *= k; } }
+  return out;
+}
+function wavBlob(buf, seconds) {
+  const ch = 2, rate = buf.sampleRate, n = Math.min(buf.length, Math.ceil(seconds * rate)), out = new DataView(new ArrayBuffer(44 + n * ch * 2));
+  const w = (o, s) => [...s].forEach((c, i) => out.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); out.setUint32(4, 36 + n * ch * 2, true); w(8, 'WAVE'); w(12, 'fmt '); out.setUint32(16, 16, true); out.setUint16(20, 1, true);
+  out.setUint16(22, ch, true); out.setUint32(24, rate, true); out.setUint32(28, rate * ch * 2, true); out.setUint16(32, ch * 2, true); out.setUint16(34, 16, true);
+  w(36, 'data'); out.setUint32(40, n * ch * 2, true);
+  const L = buf.getChannelData(0), Rr = buf.getChannelData(1);
+  for (let i = 0, o = 44; i < n; i++) for (const d of [L, Rr]) { const v = Math.max(-1, Math.min(1, d[i])); out.setInt16(o, v < 0 ? v * 0x8000 : v * 0x7fff, true); o += 2; }
+  return new Blob([out], { type: 'audio/wav' });
+}
+
+/* ---------- Picture: the block from above, with the playhead ---------- */
+const cv = $('c'), cx = cv.getContext('2d'), S = 900;
+function draw(time = -1) {
+  const d = state.data, css = getComputedStyle(document.body);
+  const fg = css.getPropertyValue('--fg').trim(), field = css.getPropertyValue('--field').trim(), acc = css.getPropertyValue('--acc').trim();
+  cx.setTransform(cv.width / S, 0, 0, cv.width / S, 0, 0);
+  cx.fillStyle = field; cx.fillRect(0, 0, S, S);
+  if (!d) return;
+  const R = d.R, P = ([x, y]) => [(x + R) / (2 * R) * S, (R - y) / (2 * R) * S];
+  const fill = (rings, col) => { cx.beginPath(); for (const r of rings) r.forEach((p, i) => { const [a, b] = P(p); i ? cx.lineTo(a, b) : cx.moveTo(a, b); }); cx.fillStyle = col; cx.fill('evenodd'); };
+  d.green.forEach(r => fill(r, 'rgb(90 150 90 / .22)'));
+  d.water.forEach(r => fill(r, 'rgb(70 120 190 / .25)'));
+  cx.strokeStyle = 'rgb(128 128 128 / .45)'; cx.lineCap = 'round';
+  for (const r of d.roads) { cx.lineWidth = ['primary', 'secondary', 'trunk', 'motorway'].includes(r.cls) ? 5 : 2.5; cx.beginPath(); cx.moveTo(...P(r.a)); cx.lineTo(...P(r.b)); cx.stroke(); }
+  const maxH = Math.max(12, ...d.buildings.map(b => b.h));
+  for (const b of d.buildings) fill(b.rings, `color-mix(in srgb, ${fg} ${Math.round(25 + 60 * Math.log(Math.max(3, b.h) / 3) / Math.log(maxH / 3))}%, ${field})`);
+  if (!current || time < 0) return;
+  // Notes light up as they ring, then fade
+  for (const n of current.sc.notes) {
+    const age = time - n.t;
+    if (age >= 0 && age < n.dur + .4) { cx.globalAlpha = Math.max(0, 1 - age / (n.dur + .4)); fill(n.b.rings, acc); cx.globalAlpha = 1; }
+  }
+  // Playhead
+  const t = Math.min(1, time / state.len); cx.strokeStyle = acc; cx.lineWidth = 3;
+  cx.beginPath();
+  if (state.sweep === 'we') { cx.moveTo(t * S, 0); cx.lineTo(t * S, S); }
+  else if (state.sweep === 'sn') { cx.moveTo(0, S - t * S); cx.lineTo(S, S - t * S); }
+  else cx.arc(S / 2, S / 2, t * S / 2 * Math.SQRT2, 0, Math.PI * 2);
+  cx.stroke();
+}
+
+/* ---------- Playback ---------- */
+let actx = null, src = null, startedAt = 0, raf = 0, current = null, buildId = 0;
+async function rebuild() {
+  stop(); current = null; $('play').disabled = $('wav').disabled = true;
+  if (!state.data) return;
+  const id = ++buildId; status('Composing…');
+  const sc = score(state.data, state), buf = await render(sc, state);
+  if (id !== buildId) return;
+  current = { sc, buf };
+  $('play').disabled = $('wav').disabled = false;
+  $('cmeta').textContent = `${sc.notes.length} notes · ${sc.ticks.length} road ticks · ${state.len} s · ${SCALES[state.scale].label}`;
+  status(`${sc.notes.length} buildings ring, ${state.data.buildings.length} pieces mapped.`);
+  draw();
+}
+function play() {
+  if (!current) return;
+  actx ||= new AudioContext();
+  actx.resume();
+  src = actx.createBufferSource(); src.buffer = current.buf; src.loop = true; src.loopEnd = state.len;
+  src.connect(actx.destination); src.start(); startedAt = actx.currentTime;
+  $('play').textContent = 'Stop'; $('play').setAttribute('aria-pressed', 'true');
+  const tick = () => { draw((actx.currentTime - startedAt) % state.len); raf = requestAnimationFrame(tick); };
+  tick();
+}
+function stop() {
+  if (src) { try { src.stop(); } catch {} src.disconnect(); src = null; }
+  cancelAnimationFrame(raf); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); draw();
+}
+$('play').onclick = () => src ? stop() : play();
+$('wav').onclick = () => {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(wavBlob(current.buf, state.len + 3));
+  a.download = `city-score-${state.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.wav`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+};
+
+/* ---------- Place, controls, URL ---------- */
+const status = (m, err) => { $('status').textContent = m; $('status').className = 'status' + (err ? ' err' : ''); };
+const PRESETS = [['Warsaw Old Town', 52.2497, 21.0122], ['Flatiron, NYC', 40.7411, -73.9897], ['Eixample, Barcelona', 41.3936, 2.1630],
+                 ['Rialto, Venice', 45.4380, 12.3359], ['Shibuya, Tokyo', 35.6595, 139.7005], ['Central Park South', 40.7681, -73.9772]];
+for (const [n, la, lo] of PRESETS) { const b = document.createElement('button'); b.type = 'button'; b.textContent = n; b.onclick = () => go(la, lo, n); $('presets').append(b); }
+for (const [k, v] of Object.entries(SCALES)) $('scale').add(new Option(v.label, k));
+for (const [k, v] of Object.entries(SWEEPS)) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = v; b.dataset.v = k;
+  b.onclick = () => { state.sweep = k; syncControls(); persist(); rebuild(); }; $('sweep').append(b);
+}
+function syncControls() {
+  $('sweep').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.sweep)));
+  $('scale').value = state.scale; $('length').value = state.len; $('radius').value = state.R;
+}
+function persist() { history.replaceState(null, '', '#' + new URLSearchParams({ lat: state.lat.toFixed(5), lon: state.lon.toFixed(5), r: state.R, n: state.name, s: state.sweep, k: state.scale, l: state.len })); }
+let loadId = 0;
+async function go(lat, lon, name) {
+  Object.assign(state, { lat, lon, name }); persist(); stop();
+  const id = ++loadId; status(`Loading ${name}…`); $('cname').textContent = name;
+  try {
+    const data = await loadArea(lat, lon, state.R);
+    if (id !== loadId) return;
+    state.data = data;
+    cv.setAttribute('aria-label', `Top-down map of ${name}, ${state.R * 2} metres across, ${data.buildings.length} building pieces.`);
+    await rebuild();
+  } catch (e) { if (id === loadId) status(`Couldn't load the map: ${e.message}`, true); }
+}
+$('search').addEventListener('submit', async e => {
+  e.preventDefault(); const q = $('q').value.trim(); if (!q) return;
+  status(`Searching for “${q}”…`);
+  try {
+    const [hit] = await (await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`)).json();
+    if (!hit) return status(`Nothing found for “${q}”.`, true);
+    go(+hit.lat, +hit.lon, hit.name || hit.display_name.split(',')[0]);
+  } catch (err) { status(`Search failed: ${err.message}`, true); }
+});
+$('radius').onchange = e => { state.R = +e.target.value; go(state.lat, state.lon, state.name); };
+$('scale').onchange = e => { state.scale = e.target.value; persist(); rebuild(); };
+$('length').onchange = e => { state.len = +e.target.value; persist(); rebuild(); };
+
+const dpr = Math.min(2, devicePixelRatio || 1); cv.width = cv.height = Math.round(S * dpr);
+const h = new URLSearchParams(location.hash.slice(1));
+if (h.get('lat') && isFinite(h.get('lat')) && isFinite(h.get('lon'))) {
+  state.R = [120, 200, 320].includes(+h.get('r')) ? +h.get('r') : 200;
+  if (SWEEPS[h.get('s')]) state.sweep = h.get('s');
+  if (SCALES[h.get('k')]) state.scale = h.get('k');
+  if ([12, 20, 32].includes(+h.get('l'))) state.len = +h.get('l');
+  syncControls(); go(+h.get('lat'), +h.get('lon'), h.get('n') || 'Somewhere');
+} else { syncControls(); go(state.lat, state.lon, state.name); }
+</script>
+</body>
+</html>
