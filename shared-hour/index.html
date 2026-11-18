@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shared Hour</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: the dial (24-hour clock with one ring per person) beside the list of people; stacks on narrow screens */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed; --sleep: rgb(17 17 17 / .08);
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; --sleep: rgb(242 240 235 / .08); color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  .back:hover { color: var(--acc); }
+  header { border-bottom: 3px solid var(--line); padding-bottom: 16px; margin: 14px 0 24px; display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: end; justify-content: space-between; }
+  h1 { font: 400 clamp(56px, 10vw, 124px)/.85 var(--display); text-transform: uppercase; margin: 0; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); max-width: 52ch; margin: 0; }
+  .main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+  .dialbox { background: var(--bg); display: grid; place-items: center; position: relative; }
+  .dialbox svg { width: 100%; max-width: 680px; height: auto; display: block; }
+  .dialbox:fullscreen { padding: 4vmin; }
+  .dialbox:fullscreen svg { max-width: none; width: auto; height: 92vmin; }
+  h2 { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin: 0 0 10px; }
+  ul.people { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 8px; }
+  ul.people li { display: grid; grid-template-columns: 10px minmax(0, 1fr) minmax(0, 1.6fr) auto; gap: 8px; align-items: center;
+                 border: 2px solid var(--line); background: var(--field); padding: 8px; }
+  ul.people .hrs { grid-row: 2; grid-column: 2 / 4; }
+  ul.people .now { grid-row: 2; grid-column: 4; }
+  ul.people .x { grid-row: 1; grid-column: 4; justify-self: end; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  input, select { font: 13px var(--mono); color: var(--fg); background: var(--bg); border: 1px solid var(--line); padding: 6px; border-radius: 0; min-width: 0; width: 100%; box-sizing: border-box; }
+  .hrs { display: flex; gap: 4px; align-items: center; font-size: 12px; color: var(--dim); }
+  .hrs select { width: auto; }
+  .now { font-size: 12px; color: var(--dim); white-space: nowrap; }
+  .now b { color: var(--fg); }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
+  button:hover { background: var(--fg); color: var(--bg); }
+  button.x { padding: 2px 8px; border-width: 1px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .summary { font-size: 13px; margin: 16px 0 0; color: var(--dim); }
+  .summary b { color: var(--fg); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../">← Creative Lab</a>
+  <header>
+    <h1>Shared<br>hour<span>.</span></h1>
+    <p class="lede">Friends in different time zones, one clock. Each ring is a person, solid while they're awake. The red wedge is when everyone is up at once, in your time.</p>
+  </header>
+
+  <div class="main">
+    <div class="dialbox" id="dialbox">
+      <svg id="dial" viewBox="0 0 640 640" role="img" aria-labelledby="dialdesc"><desc id="dialdesc"></desc></svg>
+    </div>
+    <div>
+      <h2>People</h2>
+      <ul class="people" id="people"></ul>
+      <div class="tools">
+        <button type="button" id="add">Add person</button>
+        <button type="button" id="full">Ambient mode</button>
+        <button type="button" id="share">Copy share link</button>
+        <span class="sr" role="status" id="sharemsg"></span>
+      </div>
+      <p class="summary" id="summary"></p>
+    </div>
+  </div>
+</div>
+
+<datalist id="zones"></datalist>
+
+<script>
+const $ = id => document.getElementById(id);
+const HERE = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const ZONES = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : [HERE, 'UTC'];
+$('zones').append(...ZONES.map(z => new Option(z.replace(/_/g, ' '), z)));
+const COLORS = ['#ff3b1f', '#2f6df6', '#1f9d6b', '#e0a100', '#9b4dff', '#00a3c4', '#e0459b', '#6b6862'];
+
+/* ---------- People: in the URL so a setup can be shared ---------- */
+let people = [];
+const defaults = () => [
+  { n: 'You', z: HERE, w: 8, s: 23 },
+  { n: 'New York', z: 'America/New_York', w: 8, s: 24 },
+  { n: 'Singapore', z: 'Asia/Singapore', w: 8, s: 24 },
+];
+function load() {
+  const h = new URLSearchParams(location.hash.slice(1)).get('p');
+  if (h) people = h.split(';').map(s => { const [n, z, w, sl] = s.split('|'); return { n: decodeURIComponent(n), z, w: +w, s: +sl }; }).filter(p => ZONES.includes(p.z) || p.z === 'UTC');
+  if (!people.length) { try { people = JSON.parse(localStorage.getItem('shared-hour')) || []; } catch {} }
+  if (!people.length) people = defaults();
+}
+function persist() {
+  const p = people.map(x => [encodeURIComponent(x.n), x.z, x.w, x.s].join('|')).join(';');
+  history.replaceState(null, '', '#p=' + p);
+  try { localStorage.setItem('shared-hour', JSON.stringify(people)); } catch {}
+}
+
+/* ---------- Time maths ---------- */
+// Minutes a zone is ahead of UTC right now
+function offset(zone, at = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: zone, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric' }).formatToParts(at).map(x => [x.type, x.value]));
+  return Math.round((Date.UTC(+p.year, p.month - 1, +p.day, +p.hour, +p.minute) - Math.floor(at.getTime() / 60000) * 60000) / 60000);
+}
+const awakeAt = (p, localMin) => { const h = ((localMin % 1440) + 1440) % 1440 / 60; return p.s > p.w ? h >= p.w && h < p.s : h >= p.w || h < p.s; };
+const fmt = m => { m = ((Math.round(m) % 1440) + 1440) % 1440; return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`; };
+const dur = m => m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m` : `${m}m`;
+
+// For each minute of your day: who is awake. Returns per-person masks and the all-awake mask.
+function compute() {
+  const me = offset(HERE), now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const rel = people.map(p => offset(p.z) - me);
+  const masks = people.map((p, i) => Uint8Array.from({ length: 1440 }, (_, m) => awakeAt(p, m + rel[i])));
+  const count = Uint8Array.from({ length: 1440 }, (_, m) => masks.reduce((s, k) => s + k[m], 0));
+  const most = Math.max(...count), all = most === people.length;
+  const best = Uint8Array.from(count, c => c === most && most > 0);
+  return { rel, masks, best, all, most, nowMin };
+}
+// Contiguous runs of 1s on a circular day: [{ a, b }] in minutes, b exclusive
+function runs(mask) {
+  const out = []; let start = -1;
+  for (let m = 0; m <= 1440; m++) {
+    const on = m < 1440 && mask[m];
+    if (on && start < 0) start = m; else if (!on && start >= 0) { out.push({ a: start, b: m }); start = -1; }
+  }
+  if (out.length > 1 && out[0].a === 0 && out.at(-1).b === 1440) { const f = out.shift(); out.at(-1).b = 1440 + f.b; } // join across midnight
+  return out;
+}
+
+/* ---------- Dial ---------- */
+const C = 320, ang = m => (m / 1440) * Math.PI * 2 - Math.PI / 2, pt = (r, m) => [C + r * Math.cos(ang(m)), C + r * Math.sin(ang(m))];
+const arc = (r, a, b) => { const [x1, y1] = pt(r, a), [x2, y2] = pt(r, b - .01); return `M${x1.toFixed(1)} ${y1.toFixed(1)}A${r} ${r} 0 ${b - a > 720 ? 1 : 0} 1 ${x2.toFixed(1)} ${y2.toFixed(1)}`; };
+const wedge = (r0, r1, a, b) => { const [x1, y1] = pt(r1, a), [x2, y2] = pt(r1, b), [x3, y3] = pt(r0, b), [x4, y4] = pt(r0, a), L = b - a > 720 ? 1 : 0;
+  return `M${x1} ${y1}A${r1} ${r1} 0 ${L} 1 ${x2} ${y2}L${x3} ${y3}A${r0} ${r0} 0 ${L} 0 ${x4} ${y4}Z`; };
+
+function draw(r) {
+  const n = people.length, outer = 262, step = Math.min(30, 150 / Math.max(1, n)), sw = step * .62, inner = outer - step * (n - 1) - sw;
+  let s = `<desc id="dialdesc">${desc(r)}</desc>`;
+  // Shared window(s) behind the rings
+  for (const w of runs(r.best)) s += `<path d="${wedge(inner - 6, outer + sw / 2 + 6, w.a, w.b)}" fill="var(--acc)" opacity="${r.all ? .22 : .1}"/>`;
+  // Hour ticks and labels
+  for (let h = 0; h < 24; h++) {
+    const [x1, y1] = pt(outer + sw / 2 + 10, h * 60), [x2, y2] = pt(outer + sw / 2 + (h % 6 ? 16 : 22), h * 60), [lx, ly] = pt(outer + sw / 2 + 38, h * 60);
+    s += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--fg)" stroke-width="${h % 6 ? 1 : 2}"/>`;
+    if (h % 3 === 0) s += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central" font-family="Space Mono, monospace" font-size="${h % 6 ? 12 : 15}" font-weight="700" fill="var(${h % 6 ? '--dim' : '--fg'})">${String(h).padStart(2, '0')}</text>`;
+  }
+  // One ring per person: faint all round, solid while awake
+  people.forEach((p, i) => {
+    const rr = outer - i * step, col = COLORS[i % COLORS.length];
+    s += `<circle cx="${C}" cy="${C}" r="${rr}" fill="none" stroke="var(--sleep)" stroke-width="${sw}"/>`;
+    for (const w of runs(r.masks[i])) s += `<path d="${arc(rr, w.a, w.b)}" fill="none" stroke="${col}" stroke-width="${sw}"/>`;
+  });
+  // Now hand
+  const [hx, hy] = pt(outer + sw / 2 + 24, r.nowMin), [bx, by] = pt(Math.max(0, inner - 10), r.nowMin);
+  s += `<line x1="${bx}" y1="${by}" x2="${hx}" y2="${hy}" stroke="var(--fg)" stroke-width="3" stroke-linecap="round"/><circle cx="${hx}" cy="${hy}" r="5" fill="var(--fg)"/>`;
+  // Centre text
+  const t = headline(r), cr = inner - 14, big = Math.max(18, Math.min(52, cr * .36));
+  s += `<text x="${C}" y="${C - big * .2}" text-anchor="middle" font-family="Anton, Impact, sans-serif" font-size="${big}" fill="var(${t.hot ? '--acc' : '--fg'})">${t.big}</text>`;
+  s += `<text x="${C}" y="${C + big * .55}" text-anchor="middle" font-family="Space Mono, monospace" font-size="${Math.max(10, big * .27)}" fill="var(--dim)">${t.small}</text>`;
+  $('dial').innerHTML = s;
+}
+
+function nextWindow(r) {
+  const ws = runs(r.best);
+  for (const w of ws) if (r.nowMin >= w.a && r.nowMin < w.b || r.nowMin + 1440 >= w.a && r.nowMin + 1440 < w.b) return { w, inside: true, left: (w.b - r.nowMin + 1440) % 1440 || 1440 };
+  let bestW = null, wait = Infinity;
+  for (const w of ws) { const d = (w.a - r.nowMin + 1440) % 1440; if (d < wait) { wait = d; bestW = w; } }
+  return bestW ? { w: bestW, inside: false, wait } : null;
+}
+function headline(r) {
+  if (people.length < 2) return { big: 'ADD SOMEONE', small: 'at least two people', hot: false };
+  const nw = nextWindow(r);
+  if (!nw) return { big: 'NO OVERLAP', small: 'nobody is awake together', hot: false };
+  const range = `${fmt(nw.w.a)}–${fmt(nw.w.b)} your time`;
+  const who = r.all ? '' : ` · ${r.most} of ${people.length}`;
+  return nw.inside ? { big: r.all ? 'SHARED NOW' : 'MOST ARE UP', small: `${dur(nw.left)} left${who}`, hot: true }
+                   : { big: `IN ${dur(nw.wait).toUpperCase()}`, small: range + who, hot: false };
+}
+function desc(r) {
+  const ws = runs(r.best).map(w => `${fmt(w.a)} to ${fmt(w.b)}`).join(' and ');
+  return `24-hour clock for ${people.length} people. ${r.all ? 'Everyone is awake' : `At most ${r.most} of ${people.length} are awake`} from ${ws || 'never'}, in your time. Now ${fmt(r.nowMin)}.`;
+}
+
+/* ---------- People list ---------- */
+const hourOpts = (sel, max) => Array.from({ length: max + 1 }, (_, h) => `<option value="${h}"${h === sel ? ' selected' : ''}>${String(h).padStart(2, '0')}:00</option>`).join('');
+function renderList(r) {
+  $('people').replaceChildren(...people.map((p, i) => {
+    const li = document.createElement('li'), localNow = r.nowMin + r.rel[i], up = r.masks[i][r.nowMin];
+    li.innerHTML = `<span class="dot" style="background:${COLORS[i % COLORS.length]}"></span>
+      <input aria-label="Name" maxlength="24">
+      <input aria-label="Time zone" list="zones" spellcheck="false">
+      <span class="hrs"><select aria-label="Wakes up">${hourOpts(p.w, 23)}</select>–<select aria-label="Goes to sleep">${hourOpts(p.s, 24)}</select></span>
+      <span class="now"><b>${fmt(localNow)}</b> ${up ? 'awake' : 'asleep'}</span>
+      <button type="button" class="x">×</button>`;
+    li.querySelector('.x').setAttribute('aria-label', `Remove ${p.n}`); // names come from shared links: never into innerHTML
+    const [name, zone] = li.querySelectorAll('input'), [w, s] = li.querySelectorAll('select');
+    name.value = p.n; zone.value = p.z;
+    // Field edits refresh the dial and labels in place, so focus stays where it is
+    name.onchange = () => { p.n = name.value.trim() || 'Someone'; li.querySelector('.x').setAttribute('aria-label', `Remove ${p.n}`); refresh(); };
+    zone.onchange = () => { const z = ZONES.find(x => x.toLowerCase() === zone.value.trim().toLowerCase().replace(/ /g, '_')); if (z) { p.z = z; zone.value = z; refresh(); } else zone.setCustomValidity('Pick a time zone from the list'), zone.reportValidity(); };
+    zone.oninput = () => zone.setCustomValidity('');
+    w.onchange = () => { p.w = +w.value; refresh(); }; s.onchange = () => { p.s = +s.value; refresh(); };
+    li.querySelector('.x').onclick = () => { people.splice(i, 1); update(); };
+    return li;
+  }));
+}
+function summary(r) {
+  const ws = runs(r.best);
+  $('summary').innerHTML = !ws.length ? 'No hour where anyone overlaps.'
+    : `${r.all ? 'Everyone is awake' : `Best you can do: <b>${r.most} of ${people.length}</b> awake`} <b>${ws.map(w => `${fmt(w.a)}–${fmt(w.b)}`).join(', ')}</b> your time (${ws.reduce((s, w) => s + w.b - w.a, 0) / 60} h a day).`;
+}
+
+function nowLabels(r) {
+  $('people').querySelectorAll('li').forEach((li, i) => { li.querySelector('.now').innerHTML = `<b>${fmt(r.nowMin + r.rel[i])}</b> ${r.masks[i][r.nowMin] ? 'awake' : 'asleep'}`; });
+}
+function refresh() { persist(); const r = compute(); draw(r); summary(r); nowLabels(r); return r; }
+function update() { const r = refresh(); renderList(r); }
+$('add').onclick = () => { people.push({ n: 'Someone', z: 'Europe/London', w: 8, s: 23 }); update(); $('people').lastElementChild.querySelector('input').select(); };
+$('full').onclick = () => document.fullscreenElement ? document.exitFullscreen() : $('dialbox').requestFullscreen?.();
+$('share').onclick = async () => {
+  try { await navigator.clipboard.writeText(location.href); $('share').textContent = 'Link copied'; $('sharemsg').textContent = 'Link copied'; }
+  catch { $('share').textContent = 'Copy failed'; $('sharemsg').textContent = 'Copy failed'; }
+  setTimeout(() => { $('share').textContent = 'Copy share link'; $('sharemsg').textContent = ''; }, 2000);
+};
+load(); update();
+// Tick on the minute; don't rebuild the list while someone is typing in it
+setInterval(() => { const r = compute(); draw(r); summary(r); nowLabels(r); }, 30000);
+</script>
+</body>
+</html>
