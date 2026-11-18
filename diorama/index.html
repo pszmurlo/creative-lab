@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Street Diorama</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: controls column on the left, the poster canvas on the right; stacks on narrow screens */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; display: grid; gap: 32px;
+          grid-template-columns: minmax(0, 340px) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  .back:hover { color: var(--acc); }
+  h1 { font: 400 clamp(52px, 7vw, 92px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); margin: 0 0 24px; }
+  form, fieldset { display: grid; gap: 8px; margin: 0 0 18px; border: 0; padding: 0; }
+  label, legend { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
+  .row { display: flex; gap: 8px; }
+  input[type=search], select { flex: 1; min-width: 0; font: 14px var(--mono); color: var(--fg); background: var(--field);
+          border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
+  button:hover { background: var(--fg); color: var(--bg); }
+  button.primary { background: var(--fg); color: var(--bg); }
+  button.primary:hover { background: var(--acc); border-color: var(--acc); }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
+  .presets button { padding: 6px 8px; font-size: 11px; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .status { min-height: 1.5em; color: var(--dim); font-size: 12px; }
+  .status.err { color: var(--acc); }
+  .stagewrap { position: sticky; top: 16px; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; border: 3px solid var(--line);
+           cursor: grab; touch-action: pan-y; background: var(--field); }
+  canvas:active { cursor: grabbing; }
+  .hint { color: var(--dim); font-size: 12px; margin-top: 8px; }
+  .credit { color: var(--dim); font-size: 11px; margin-top: 18px; }
+  .credit a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <a class="back" href="../">← Creative Lab</a>
+    <h1>Street<br>Diorama<span>.</span></h1>
+    <p class="lede">Any place on Earth as a little isometric block, cut out of the city with every building at its mapped height. Find a place, turn it, pick a style, save the print.</p>
+
+    <form id="search">
+      <label for="q">Place</label>
+      <div class="row">
+        <input id="q" type="search" placeholder="Street, square, landmark…" autocomplete="off" required>
+        <button class="primary" type="submit">Go</button>
+      </div>
+      <div class="presets" id="presets"></div>
+    </form>
+
+    <fieldset>
+      <legend>Size</legend>
+      <select id="radius" aria-label="Size of the cut-out">
+        <option value="120">Corner · 240 m</option>
+        <option value="200" selected>Block · 400 m</option>
+        <option value="320">Quarter · 640 m</option>
+      </select>
+    </fieldset>
+    <fieldset>
+      <legend>Style</legend>
+      <select id="style" aria-label="Drawing style"></select>
+    </fieldset>
+    <fieldset>
+      <label for="rot">Rotation <span id="rotv"></span></label>
+      <input id="rot" type="range" min="0" max="359" step="1" value="30">
+    </fieldset>
+    <fieldset>
+      <label for="hx">Height <span id="hxv"></span></label>
+      <input id="hx" type="range" min="1" max="3" step="0.1" value="1.4">
+    </fieldset>
+    <div class="row">
+      <button type="button" id="save">Save PNG</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+    <p class="credit">Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>. Tiles from <a href="https://openfreemap.org">OpenFreeMap</a>, search by <a href="https://nominatim.org">Nominatim</a>.</p>
+  </div>
+
+  <div class="stagewrap">
+    <canvas id="c" tabindex="0" role="img" aria-label="Isometric diorama"></canvas>
+    <p class="hint">Drag the model or use ← → to turn it.</p>
+  </div>
+</div>
+
+<script>
+/* ---------- Mapbox Vector Tile decoder (just what this page needs) ---------- */
+class Pbf {
+  constructor(buf) { this.b = new Uint8Array(buf); this.p = 0; }
+  varint() { let r = 0, m = 1, c; do { c = this.b[this.p++]; r += (c & 0x7f) * m; m *= 128; } while (c & 0x80); return r; }
+  svarint() { const n = this.varint(); return n % 2 ? -(n + 1) / 2 : n / 2; }
+  bytes() { const len = this.varint(), s = this.p; this.p += len; return this.b.subarray(s, this.p); }
+  str() { return new TextDecoder().decode(this.bytes()); }
+  skip(w) { if (w === 0) this.varint(); else if (w === 1) this.p += 8; else if (w === 2) this.p += this.varint(); else if (w === 5) this.p += 4; }
+  packed() { const end = this.varint() + this.p, out = []; while (this.p < end) out.push(this.varint()); return out; }
+}
+function decodeValue(bytes) {
+  const r = new Pbf(bytes); let v = null;
+  while (r.p < r.b.length) {
+    const t = r.varint(), f = t >> 3, w = t & 7;
+    if (f === 1) v = r.str();
+    else if (f === 2) { v = new DataView(r.b.buffer, r.b.byteOffset + r.p, 4).getFloat32(0, true); r.p += 4; }
+    else if (f === 3) { v = new DataView(r.b.buffer, r.b.byteOffset + r.p, 8).getFloat64(0, true); r.p += 8; }
+    else if (f === 4 || f === 5) v = r.varint();
+    else if (f === 6) v = r.svarint();
+    else if (f === 7) v = !!r.varint();
+    else r.skip(w);
+  }
+  return v;
+}
+// Returns { layerName: { extent, features: [{ type, props, geom: [[ [x,y], ... ], ...] }] } }
+function decodeTile(buf, wanted) {
+  const r = new Pbf(buf), layers = {};
+  while (r.p < r.b.length) {
+    const t = r.varint();
+    if ((t >> 3) !== 3) { r.skip(t & 7); continue; }
+    const lr = new Pbf(r.bytes());
+    let name = '', extent = 4096; const keys = [], vals = [], feats = [];
+    while (lr.p < lr.b.length) {
+      const lt = lr.varint(), f = lt >> 3;
+      if (f === 1) name = lr.str();
+      else if (f === 2) feats.push(lr.bytes());
+      else if (f === 3) keys.push(lr.str());
+      else if (f === 4) vals.push(decodeValue(lr.bytes()));
+      else if (f === 5) extent = lr.varint();
+      else lr.skip(lt & 7);
+    }
+    if (!wanted.has(name)) continue;
+    layers[name] = { extent, features: feats.map(fb => {
+      const fr = new Pbf(fb); let tags = [], type = 0, geo = [];
+      while (fr.p < fr.b.length) {
+        const ft = fr.varint(), f = ft >> 3;
+        if (f === 2) tags = fr.packed(); else if (f === 3) type = fr.varint(); else if (f === 4) geo = fr.packed(); else fr.skip(ft & 7);
+      }
+      const props = {}; for (let i = 0; i < tags.length; i += 2) props[keys[tags[i]]] = vals[tags[i + 1]];
+      const rings = []; let x = 0, y = 0, ring = null;
+      for (let i = 0; i < geo.length;) {
+        const c = geo[i++], id = c & 7, n = c >> 3;
+        if (id === 7) { if (ring) ring.closed = true; continue; }
+        for (let k = 0; k < n; k++) {
+          x += zz(geo[i++]); y += zz(geo[i++]);
+          if (id === 1) { ring = []; rings.push(ring); }
+          ring.push([x, y]);
+        }
+      }
+      return { type, props, rings };
+    }) };
+  }
+  return layers;
+}
+function zz(n) { return n % 2 ? -(n + 1) / 2 : n / 2; }
+
+/* ---------- Geometry helpers ---------- */
+const area = r => { let a = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) a += (r[j][0] - r[i][0]) * (r[j][1] + r[i][1]); return a / 2; }; // >0 = CCW (y up)
+// Sutherland–Hodgman against an axis-aligned rect
+function clipPoly(ring, x0, y0, x1, y1) {
+  const edges = [[p => p[0] >= x0, (a, b) => lerpX(a, b, x0)], [p => p[0] <= x1, (a, b) => lerpX(a, b, x1)],
+                 [p => p[1] >= y0, (a, b) => lerpY(a, b, y0)], [p => p[1] <= y1, (a, b) => lerpY(a, b, y1)]];
+  let out = ring;
+  for (const [inside, cut] of edges) {
+    if (!out.length) break;
+    const inp = out; out = [];
+    for (let i = 0; i < inp.length; i++) {
+      const a = inp[(i + inp.length - 1) % inp.length], b = inp[i];
+      if (inside(b)) { if (!inside(a)) out.push(cut(a, b)); out.push(b); } else if (inside(a)) out.push(cut(a, b));
+    }
+  }
+  return out;
+}
+const lerpX = (a, b, x) => [x, a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0])];
+const lerpY = (a, b, y) => [a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]), y];
+// Liang–Barsky for one segment
+function clipSeg(a, b, x0, y0, x1, y1) {
+  let t0 = 0, t1 = 1; const dx = b[0] - a[0], dy = b[1] - a[1];
+  for (const [p, q] of [[-dx, a[0] - x0], [dx, x1 - a[0]], [-dy, a[1] - y0], [dy, y1 - a[1]]]) {
+    if (p === 0) { if (q < 0) return null; continue; }
+    const t = q / p;
+    if (p < 0) { if (t > t1) return null; if (t > t0) t0 = t; } else { if (t < t0) return null; if (t < t1) t1 = t; }
+  }
+  return [[a[0] + t0 * dx, a[1] + t0 * dy], [a[0] + t1 * dx, a[1] + t1 * dy]];
+}
+
+/* ---------- Data: tiles around a point, in local metres (x east, y north) ---------- */
+const Z = 14;
+let TILE_URL = null;
+const tileCache = new Map();
+async function tileTemplate() {
+  if (TILE_URL) return TILE_URL;
+  const tj = await (await fetch('https://tiles.openfreemap.org/planet')).json();
+  return (TILE_URL = tj.tiles[0]);
+}
+const lon2t = lon => (lon + 180) / 360 * 2 ** Z;
+const lat2t = lat => (1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * 2 ** Z;
+const t2lon = x => x / 2 ** Z * 360 - 180;
+const t2lat = y => { const n = Math.PI - 2 * Math.PI * y / 2 ** Z; return 180 / Math.PI * Math.atan(Math.sinh(n)); };
+
+async function loadArea(lat, lon, R) {
+  const mx = 111320 * Math.cos(lat * Math.PI / 180), my = 110574;
+  const toLocal = (lo, la) => [(lo - lon) * mx, (la - lat) * my];
+  const pad = R * 1.05;
+  const tx0 = Math.floor(lon2t(lon - pad / mx)), tx1 = Math.floor(lon2t(lon + pad / mx));
+  const ty0 = Math.floor(lat2t(lat + pad / my)), ty1 = Math.floor(lat2t(lat - pad / my));
+  const url = await tileTemplate();
+  const jobs = [];
+  for (let tx = tx0; tx <= tx1; tx++) for (let ty = ty0; ty <= ty1; ty++) {
+    const key = `${tx}/${ty}`;
+    if (!tileCache.has(key)) tileCache.set(key, fetch(url.replace('{z}', Z).replace('{x}', tx).replace('{y}', ty))
+      .then(r => { if (!r.ok) throw new Error(`tile ${key}: HTTP ${r.status}`); return r.arrayBuffer(); })
+      .then(b => decodeTile(b, new Set(['building', 'transportation', 'water', 'park', 'landcover'])))
+      .catch(e => { tileCache.delete(key); throw e; }));
+    jobs.push(tileCache.get(key).then(layers => ({ tx, ty, layers })));
+  }
+  const tiles = await Promise.all(jobs);
+
+  const out = { buildings: [], roads: [], water: [], green: [], R };
+  for (const { tx, ty, layers } of tiles) {
+    // This tile's exact bounds in local metres, intersected with the cut-out square
+    const [bx0, by1] = toLocal(t2lon(tx), t2lat(ty)), [bx1, by0] = toLocal(t2lon(tx + 1), t2lat(ty + 1));
+    const cx0 = Math.max(bx0, -R), cx1 = Math.min(bx1, R), cy0 = Math.max(by0, -R), cy1 = Math.min(by1, R);
+    if (cx0 >= cx1 || cy0 >= cy1) continue;
+    // Sides that are tile seams (not the diorama's own cut): edges along them are not drawn
+    const seams = { x: [bx0 > -R && bx0, bx1 < R && bx1].filter(v => v !== false), y: [by0 > -R && by0, by1 < R && by1].filter(v => v !== false) };
+    const proj = (layer, f) => f.rings.map(r => r.map(([px, py]) => toLocal(t2lon(tx + px / layer.extent), t2lat(ty + py / layer.extent))));
+
+    const polys = (layer, cb) => {
+      if (!layer) return;
+      for (const f of layer.features) {
+        if (f.type !== 3) continue;
+        // Split rings into polygons: an exterior ring starts a new polygon (y-down tile coords: exterior has positive area)
+        const local = proj(layer, f), polys = [];
+        f.rings.forEach((r, i) => { if (area(r) > 0 || !polys.length) polys.push([local[i]]); else polys.at(-1).push(local[i]); });
+        for (const p of polys) {
+          const outer = clipPoly(p[0], cx0, cy0, cx1, cy1);
+          if (outer.length < 3) continue;
+          const rings = [outer, ...p.slice(1).map(r => clipPoly(r, cx0, cy0, cx1, cy1)).filter(r => r.length >= 3)];
+          // Exterior CCW, holes CW (y up), so one outward-normal rule works for every wall
+          rings.forEach((r, i) => { const a = area(r); if ((i === 0) !== (a > 0)) r.reverse(); });
+          cb(rings, f.props);
+        }
+      }
+    };
+    polys(layers.building, (rings, p) => {
+      if (p.hide_3d) return;
+      const h = +p.render_height || 6, mh = +p.render_min_height || 0;
+      let cx = 0, cy = 0; for (const [x, y] of rings[0]) { cx += x; cy += y; }
+      out.buildings.push({ rings, h, mh, cx: cx / rings[0].length, cy: cy / rings[0].length, seams });
+    });
+    polys(layers.water, rings => out.water.push(rings));
+    polys(layers.park, rings => out.green.push(rings));
+    polys(layers.landcover, (rings, p) => { if (['grass', 'wood', 'farmland', 'wetland'].includes(p.class)) out.green.push(rings); });
+    const tr = layers.transportation;
+    if (tr) for (const f of tr.features) {
+      if (f.type !== 2 || f.props.brunnel === 'tunnel') continue;
+      for (const line of proj(tr, f)) for (let i = 1; i < line.length; i++) {
+        const s = clipSeg(line[i - 1], line[i], cx0, cy0, cx1, cy1);
+        if (s) out.roads.push({ a: s[0], b: s[1], cls: f.props.class });
+      }
+    }
+  }
+  return out;
+}
+
+/* ---------- Styles ---------- */
+const STYLES = {
+  outline:   { label: 'Pale outline', bg: '#f6f5f1', ground: '#fbfaf7', slabL: '#e6e4de', slabR: '#d8d5ce', roof: '#ffffff', wallL: '#f3f2ee', wallR: '#e4e2dc', line: '#8e9296', lw: .6, road: '#ebe8e1', water: '#dde6ea', green: '#e9ede1', text: '#1b1b1b', dim: '#8e9296' },
+  ink:       { label: 'Ink on paper', bg: '#e9e6df', ground: '#efece6', slabL: '#d3cfc6', slabR: '#bdb9b0', roof: '#ffffff', wallL: '#ebe8e1', wallR: '#cdc9c0', line: '#111111', lw: .9, road: '#dcd8cf', water: '#c8d3d7', green: '#dadfcd', text: '#111111', dim: '#6b6862' },
+  blueprint: { label: 'Blueprint', bg: '#0f3a73', ground: '#124280', slabL: '#0d3466', slabR: '#0a2a54', roof: '#16498b', wallL: '#134483', wallR: '#0f3b74', line: '#d3e4ff', lw: .7, road: '#1a5196', water: '#0c3165', green: '#144b8c', text: '#e8f0ff', dim: '#9dbbe8' },
+  night:     { label: 'Night signal', bg: '#0d0d0e', ground: '#161618', slabL: '#1e1e21', slabR: '#121214', roof: '#1c1c1f', wallL: '#161618', wallR: '#0f0f11', line: '#ff3b1f', lw: .8, road: '#232327', water: '#0f1820', green: '#141a14', text: '#f2f0eb', dim: '#8d8a83' },
+};
+const ROAD_W = { motorway: 16, trunk: 14, primary: 12, secondary: 10, tertiary: 9, minor: 7, service: 4, track: 3, path: 2, rail: 2, transit: 2 };
+
+/* ---------- Renderer ---------- */
+const W = 1200, H = 1500, CAP = 250;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const state = { lat: 52.2497, lon: 21.0122, name: 'Warsaw Old Town', R: 200, rot: 30, hx: 1.4, style: 'outline', data: null };
+
+function sizeCanvas() {
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  cv.width = W * dpr; cv.height = H * dpr;
+}
+
+function draw(target = ctx, scaleTo = cv.width / W) {
+  const S = STYLES[state.style], d = state.data, c = target;
+  c.setTransform(scaleTo, 0, 0, scaleTo, 0, 0);
+  c.fillStyle = S.bg; c.fillRect(0, 0, W, H);
+  caption(c, S);
+  if (!d) return;
+
+  const R = d.R, th = state.rot * Math.PI / 180, cs = Math.cos(th), sn = Math.sin(th);
+  const C30 = Math.cos(Math.PI / 6), S30 = .5, T = R * .09, hx = state.hx;
+  const rot = ([x, y]) => [x * cs - y * sn, x * sn + y * cs];
+  let maxH = 0; for (const b of d.buildings) maxH = Math.max(maxH, b.h);
+  // Fit the slab plus the tallest building into the drawing area
+  const corners = [[-R, -R], [R, -R], [R, R], [-R, R]].map(rot);
+  const xs = corners.map(([u, v]) => (u - v) * C30), ys = corners.map(([u, v]) => -(u + v) * S30);
+  const bw = Math.max(...xs) - Math.min(...xs), top = Math.min(...ys) - maxH * hx, bot = Math.max(...ys) + T;
+  const area = { x: 60, y: 60, w: W - 120, h: H - CAP - 100 };
+  const s = Math.min(area.w / bw, area.h / (bot - top));
+  const ox = area.x + area.w / 2 - (Math.max(...xs) + Math.min(...xs)) / 2 * s;
+  const oy = area.y + (area.h - (bot - top) * s) / 2 - top * s;
+  const P = (p, z) => { const [u, v] = rot(p); return [ox + (u - v) * C30 * s, oy - (u + v) * S30 * s - z * hx * s]; };
+  const Pg = (p, z) => { const [u, v] = rot(p); return [ox + (u - v) * C30 * s, oy - (u + v) * S30 * s - z * s]; }; // slab depth is not exaggerated
+
+  c.lineJoin = 'round'; c.lineCap = 'round';
+  const poly = (pts, fill, stroke) => {
+    c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath();
+    if (fill) { c.fillStyle = fill; c.fill(); }
+    if (stroke) { c.strokeStyle = S.line; c.lineWidth = S.lw; c.stroke(); }
+  };
+  // A wall faces the viewer when its outward normal points toward -(u+v)
+  const facing = (a, b) => { const [ua, va] = rot(a), [ub, vb] = rot(b); const nx = vb - va, ny = -(ub - ua); return { vis: nx + ny < 0, left: nx < ny }; };
+
+  // Slab: two visible sides, then the ground
+  const sq = [[-R, -R], [R, -R], [R, R], [-R, R]];
+  for (let i = 0; i < 4; i++) {
+    const a = sq[i], b = sq[(i + 1) % 4], f = facing(a, b);
+    if (f.vis) poly([Pg(a, 0), Pg(b, 0), Pg(b, -T), Pg(a, -T)], f.left ? S.slabL : S.slabR, true);
+  }
+  poly(sq.map(p => Pg(p, 0)), S.ground, true);
+
+  // Ground features
+  const flat = (rings, fill) => {
+    c.beginPath();
+    for (const r of rings) r.forEach((p, i) => { const [x, y] = Pg(p, 0); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+    c.fillStyle = fill; c.fill('evenodd');
+  };
+  d.green.forEach(r => flat(r, S.green));
+  d.water.forEach(r => flat(r, S.water));
+  for (const r of d.roads) {
+    const w = ROAD_W[r.cls] ?? 5;
+    const [ax, ay] = Pg(r.a, 0), [bx, by] = Pg(r.b, 0);
+    c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by);
+    c.strokeStyle = r.cls === 'rail' || r.cls === 'transit' ? S.line : S.road;
+    c.lineWidth = Math.max(.6, w * s * .72);
+    c.setLineDash(r.cls === 'rail' || r.cls === 'transit' ? [4, 4] : []);
+    c.stroke();
+  }
+  c.setLineDash([]);
+
+  // Buildings, far to near
+  const seamEdge = (b, p, q) => b.seams.x.some(x => Math.abs(p[0] - x) < .01 && Math.abs(q[0] - x) < .01)
+                            || b.seams.y.some(y => Math.abs(p[1] - y) < .01 && Math.abs(q[1] - y) < .01);
+  const order = d.buildings.map(b => { const [u, v] = rot([b.cx, b.cy]); return { b, k: u + v }; }).sort((a, z) => z.k - a.k);
+  for (const { b } of order) {
+    const walls = [];
+    for (const r of b.rings) for (let i = 0; i < r.length; i++) {
+      const p = r[i], q = r[(i + 1) % r.length];
+      if (seamEdge(b, p, q)) continue;
+      const f = facing(p, q); if (!f.vis) continue;
+      const [um, vm] = rot([(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]);
+      walls.push({ p, q, left: f.left, k: um + vm });
+    }
+    walls.sort((a, z) => z.k - a.k);
+    for (const w of walls) poly([P(w.p, b.mh), P(w.q, b.mh), P(w.q, b.h), P(w.p, b.h)], w.left ? S.wallL : S.wallR, true);
+    // Roof: fill with holes, then stroke every edge except tile seams
+    c.beginPath();
+    for (const r of b.rings) r.forEach((p, i) => { const [x, y] = P(p, b.h); i ? c.lineTo(x, y) : c.moveTo(x, y); });
+    c.fillStyle = S.roof; c.fill('evenodd');
+    c.beginPath();
+    for (const r of b.rings) for (let i = 0; i < r.length; i++) {
+      const p = r[i], q = r[(i + 1) % r.length]; if (seamEdge(b, p, q)) continue;
+      const [x1, y1] = P(p, b.h), [x2, y2] = P(q, b.h); c.moveTo(x1, y1); c.lineTo(x2, y2);
+    }
+    c.strokeStyle = S.line; c.lineWidth = S.lw; c.stroke();
+  }
+}
+
+function caption(c, S) {
+  const y = H - CAP + 20;
+  c.fillStyle = S.text; c.strokeStyle = S.text; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(60, y); c.lineTo(W - 60, y); c.stroke();
+  let size = 110; c.font = `400 ${size}px Anton, Impact, sans-serif`;
+  const name = (state.name || '').toUpperCase();
+  while (c.measureText(name).width > W - 120 && size > 40) c.font = `400 ${--size}px Anton, Impact, sans-serif`;
+  c.textBaseline = 'alphabetic'; c.fillText(name, 60, y + 24 + size * .9);
+  c.font = '700 20px "Space Mono", monospace';
+  const lat = `${Math.abs(state.lat).toFixed(4)}°${state.lat >= 0 ? 'N' : 'S'}`, lon = `${Math.abs(state.lon).toFixed(4)}°${state.lon >= 0 ? 'E' : 'W'}`;
+  c.fillText(`${lat}  ${lon}  ·  ${state.R * 2} M`, 60, H - 56);
+  c.fillStyle = S.dim; c.font = '400 15px "Space Mono", monospace'; c.textAlign = 'right';
+  c.fillText('© OpenStreetMap contributors', W - 60, H - 56); c.textAlign = 'left';
+}
+
+/* ---------- UI ---------- */
+const $ = id => document.getElementById(id);
+const status = (msg, err) => { $('status').textContent = msg; $('status').className = 'status' + (err ? ' err' : ''); };
+const PRESETS = [
+  ['Warsaw Old Town', 52.2497, 21.0122], ['Flatiron, NYC', 40.7411, -73.9897], ['Eixample, Barcelona', 41.3936, 2.1630],
+  ['Rialto, Venice', 45.4380, 12.3359], ['Shibuya, Tokyo', 35.6595, 139.7005], ['City of London', 51.5134, -0.0890],
+];
+for (const [n, la, lo] of PRESETS) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = n;
+  b.onclick = () => go(la, lo, n); $('presets').append(b);
+}
+for (const [k, v] of Object.entries(STYLES)) $('style').add(new Option(v.label, k));
+
+let loadId = 0, raf = 0;
+const redraw = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => draw()); };
+async function go(lat, lon, name) {
+  Object.assign(state, { lat, lon, name });
+  const id = ++loadId;
+  status(`Loading ${name}…`);
+  try {
+    const data = await loadArea(lat, lon, state.R);
+    if (id !== loadId) return;
+    state.data = data;
+    status(`${data.buildings.length} building pieces, ${data.roads.length} road segments.`);
+    cv.setAttribute('aria-label', `Isometric diorama of ${name}, ${state.R * 2} metres across, with ${data.buildings.length} buildings.`);
+    history.replaceState(null, '', `#${lat.toFixed(5)},${lon.toFixed(5)},${state.R},${encodeURIComponent(name)}`);
+    redraw();
+  } catch (e) { if (id === loadId) status(`Couldn't load the map: ${e.message}`, true); }
+}
+
+$('search').addEventListener('submit', async e => {
+  e.preventDefault();
+  const q = $('q').value.trim(); if (!q) return;
+  status(`Searching for “${q}”…`);
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`);
+    const [hit] = await r.json();
+    if (!hit) return status(`Nothing found for “${q}”.`, true);
+    go(+hit.lat, +hit.lon, hit.name || hit.display_name.split(',')[0]);
+  } catch (err) { status(`Search failed: ${err.message}`, true); }
+});
+$('radius').onchange = e => { state.R = +e.target.value; go(state.lat, state.lon, state.name); };
+$('style').onchange = e => { state.style = e.target.value; redraw(); };
+const setRot = v => { state.rot = ((Math.round(v) % 360) + 360) % 360; $('rot').value = state.rot; $('rotv').textContent = `${state.rot}°`; redraw(); };
+$('rot').oninput = e => setRot(+e.target.value);
+const setHx = v => { state.hx = v; $('hxv').textContent = `×${v.toFixed(1)}`; redraw(); };
+$('hx').oninput = e => setHx(+e.target.value);
+
+// Drag to rotate (horizontal), keyboard arrows on the focused canvas
+let drag = null;
+cv.addEventListener('pointerdown', e => { drag = { x: e.clientX, rot: state.rot }; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => { if (drag) setRot(drag.rot + (e.clientX - drag.x) * .5); });
+cv.addEventListener('pointerup', () => drag = null);
+cv.addEventListener('pointercancel', () => drag = null);
+cv.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') { setRot(state.rot - 15); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { setRot(state.rot + 15); e.preventDefault(); }
+});
+
+$('save').onclick = () => {
+  const out = document.createElement('canvas'); out.width = W * 2; out.height = H * 2;
+  draw(out.getContext('2d'), 2);
+  const a = document.createElement('a');
+  a.download = `diorama-${(state.name || 'place').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.png`;
+  out.toBlob(b => { a.href = URL.createObjectURL(b); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+};
+
+// Start: place from the URL hash if there is one, otherwise the first preset
+sizeCanvas(); setRot(state.rot); setHx(state.hx);
+const h = location.hash.slice(1).split(',');
+if (h.length >= 3 && isFinite(h[0]) && isFinite(h[1])) {
+  state.R = [120, 200, 320].includes(+h[2]) ? +h[2] : 200; $('radius').value = state.R;
+  go(+h[0], +h[1], decodeURIComponent(h.slice(3).join(',') || 'Somewhere'));
+} else go(state.lat, state.lon, state.name);
+document.fonts.ready.then(redraw);
+</script>
+</body>
+</html>
