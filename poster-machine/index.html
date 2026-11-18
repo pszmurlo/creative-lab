@@ -53,7 +53,7 @@
   .wall canvas { width: 100%; height: auto; display: block; box-shadow: 0 1px 0 rgba(0,0,0,.15), 4px 6px 0 rgba(0,0,0,.12); transition: transform .15s; }
   @media (hover: hover) and (pointer: fine) { .wall figure:hover canvas { transform: translateY(-3px) rotate(-.4deg); } }
   .wall figcaption { margin-top: 6px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: min(1100px, 96vw); width: 100%; }
+  dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: min(1100px, 96vw); width: 100%; overscroll-behavior: contain; }
   dialog::backdrop { background: rgba(10,10,10,.75); }
   /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
   dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
@@ -65,7 +65,7 @@
     @starting-style { dialog[open] { scale: .96; } }
   }
   .lb { display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
-  .lb canvas { width: 100%; height: auto; display: block; max-height: 86vh; object-fit: contain; background: #000; }
+  .lb canvas { width: 100%; height: auto; display: block; max-height: 86svh; object-fit: contain; background: #000; }
   .lb aside { padding: 20px; display: flex; flex-direction: column; gap: 10px; border-left: 3px solid var(--line); }
   .lb aside p { margin: 0 0 6px; color: var(--dim); }
   .lb aside a { color: var(--fg); }
@@ -404,7 +404,7 @@ function renderWall() {
   wall.textContent = '';
   const dpr = Math.min(devicePixelRatio || 1, 2);
   items.forEach((item, i) => {
-    const fig = document.createElement('figure'); fig.tabIndex = 0;
+    const fig = document.createElement('figure'); fig.tabIndex = 0; fig.role = 'button';
     const cv = document.createElement('canvas');
     const px = 320 * dpr; cv.width = px; cv.height = Math.round(px * H / W);
     const c = render(cv, item, i, px / W);
@@ -412,7 +412,7 @@ function renderWall() {
     const cap = document.createElement('figcaption'); cap.textContent = `${c.layout} · ${c.inkName} · @${item.handle}`;
     fig.append(cv, cap);
     fig.onclick = () => openLb(i);
-    fig.onkeydown = e => { if (e.key === 'Enter') openLb(i); };
+    fig.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLb(i); } };
     wall.append(fig);
   });
   document.getElementById('count').textContent = `${items.length} posters from your bookmarks · captured ${(window.BOOKMARKS_CAPTURED || '').split('-').reverse().join('.')}`;

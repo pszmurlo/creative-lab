@@ -227,8 +227,14 @@ function show() {
     lc.replaceChildren(paintingCaption(current.item, false));
   }
   // Right: the chosen match
-  mount($('rightframe'), paintingImg(m.p, m.flip), overlay(m.p.Lr, m.flip));
-  $('rightcap').replaceChildren(paintingCaption(m.p, m.flip));
+  // Keep the previous match up until the new painting has decoded, then fade it in (no blank frame)
+  const img = paintingImg(m.p, m.flip), token = show.token = (show.token || 0) + 1;
+  img.decode().catch(() => {}).then(() => {
+    if (token !== show.token) return; // a newer pick replaced this one
+    mount($('rightframe'), img, overlay(m.p.Lr, m.flip));
+    $('rightcap').replaceChildren(paintingCaption(m.p, m.flip));
+    img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.23, 1, .32, 1)' });
+  });
   $('score').innerHTML = `${pct(m.d)}%<small>composition match</small>`;
   // Runners-up
   $('runners').replaceChildren(...matches.map((r, i) => {

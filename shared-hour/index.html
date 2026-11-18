@@ -212,7 +212,7 @@ function renderList(r) {
     const li = document.createElement('li'), localNow = r.nowMin + r.rel[i], up = r.masks[i][r.nowMin];
     li.innerHTML = `<span class="dot" style="background:${COLORS[i % COLORS.length]}"></span>
       <input aria-label="Name" maxlength="24">
-      <input aria-label="Time zone" list="zones" spellcheck="false">
+      <input aria-label="Time zone" list="zones" spellcheck="false" autocapitalize="none" autocorrect="off">
       <span class="hrs"><select aria-label="Wakes up">${hourOpts(p.w, 23)}</select>–<select aria-label="Goes to sleep">${hourOpts(p.s, 24)}</select></span>
       <span class="now"><b>${fmt(localNow)}</b> ${up ? 'awake' : 'asleep'}</span>
       <button type="button" class="x">×</button>`;

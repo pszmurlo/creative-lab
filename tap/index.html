@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Tap Log</title>
@@ -15,7 +15,7 @@
     :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; --heat: 242 240 235; color-scheme: dark; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px max(16px, 4vw) 72px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px max(16px, 4vw, env(safe-area-inset-right)) 72px max(16px, 4vw, env(safe-area-inset-left)); }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
   @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
   header { border-bottom: 3px solid var(--line); padding-bottom: 18px; margin: 14px 0 24px; }
@@ -74,12 +74,12 @@
   code.url { display: block; padding: 10px; background: var(--field); border: 1px solid var(--line); word-break: break-all; font-size: 12px; }
   .copy { position: relative; display: inline-flex; align-items: center; gap: 8px; }
   .tip { font-size: 12px; color: var(--acc); opacity: 0; transition: opacity .15s; }
-  .tip:not(:empty) { opacity: 1; }
+  .tip.show { opacity: 1; }
   .dlg-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
   .dlg-acts .close { margin-left: auto; }
 
   /* Tap screen */
-  .tapscreen { min-height: 100dvh; display: grid; place-content: center; text-align: center; gap: 16px; padding: 24px 16px; box-sizing: border-box; }
+  .tapscreen { min-height: 100dvh; display: grid; place-content: center; text-align: center; gap: 16px; padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); box-sizing: border-box; }
   .tapscreen .emo { font-size: clamp(96px, 30vw, 180px); line-height: 1; }
   .tapscreen h1 { font-size: clamp(48px, 14vw, 110px); margin: 0; }
   .tapscreen .meta { color: var(--dim); font-size: 15px; }
@@ -129,9 +129,9 @@
   </header>
 
   <form class="new" id="newtag">
-    <label>Emoji <input type="text" id="emoji" value="☕" maxlength="8" required></label>
-    <label>Name <input type="text" id="name" placeholder="Coffee" maxlength="40" required></label>
-    <label class="wide">Then open (optional) <input type="url" id="go" placeholder="https://open.spotify.com/playlist/…"></label>
+    <label>Emoji <input type="text" id="emoji" value="☕" maxlength="8" required autocomplete="off" enterkeyhint="next"></label>
+    <label>Name <input type="text" id="name" placeholder="Coffee" maxlength="40" required autocapitalize="words" enterkeyhint="next"></label>
+    <label class="wide">Then open (optional) <input type="url" id="go" placeholder="https://open.spotify.com/playlist/…" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done"></label>
     <button class="primary wide" type="submit">New sticker</button>
   </form>
 
@@ -319,8 +319,11 @@ function report(button, ok) {
   const tip = button.nextElementSibling;
   clearTimeout(timers.get(button));
   tip.textContent = '';
-  requestAnimationFrame(() => (tip.textContent = ok ? 'Copied' : 'Copy failed'));
-  timers.set(button, setTimeout(() => (tip.textContent = ''), 2000));
+  requestAnimationFrame(() => { tip.textContent = ok ? 'Copied' : 'Copy failed'; tip.classList.add('show'); });
+  timers.set(button, setTimeout(() => {
+    tip.classList.remove('show');
+    timers.set(button, setTimeout(() => (tip.textContent = ''), 200)); // after the 150ms fade
+  }, 2000));
 }
 async function copy(button, target) {
   try { await navigator.clipboard.writeText(target.innerText.trim()); report(button, true); } catch { report(button, false); }

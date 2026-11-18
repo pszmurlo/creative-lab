@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07090a">
 <title>ASCII Mirror</title>
 <style>
@@ -18,10 +18,10 @@
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 var(--mono); overflow: hidden; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 var(--mono); overflow: hidden; overscroll-behavior: none; }
   canvas#screen { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
   .bar {
-    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%);
     display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center;
     max-width: calc(100% - 32px);
     padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
@@ -36,9 +36,9 @@
   button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   input[type=range] { accent-color: var(--accent); width: 90px; }
-  .status { position: fixed; top: 14px; left: 16px; padding: 4px 8px; border-radius: 6px; background: var(--panel); color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
+  .status { position: fixed; top: calc(14px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); padding: 4px 8px; border-radius: 6px; background: var(--panel); color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
   .status b { color: var(--accent); font-weight: normal; }
-  .toast { position: fixed; top: 14px; right: 16px; color: var(--accent); font-size: 12px; opacity: 0; transform: translateY(-6px); transition: opacity 400ms ease, transform 400ms ease; }
+  .toast { position: fixed; top: calc(14px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); color: var(--accent); font-size: 12px; opacity: 0; transform: translateY(-6px); transition: opacity 400ms ease, transform 400ms ease; }
   .toast.show { opacity: 1; transform: none; }
   @media (prefers-reduced-motion: reduce) { .toast { transform: none; transition: opacity 400ms ease; } }
 
@@ -196,9 +196,12 @@ function render() {
 }
 
 let frames = 0, fpsT = performance.now();
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let running = false;
+function start() { if (running) return; running = true; frames = 0; fpsT = performance.now(); requestAnimationFrame(loop); }
 function loop(t) {
-  if (!state.frozen) { grab(reduceMotion && !state.live ? 0 : t); render(); }
+  if (state.frozen) { running = false; return; } // a frozen frame doesn't change; Freeze restarts the loop
+  grab(reduceMotion.matches && !state.live ? 0 : t); render();
   frames++;
   if (t - fpsT > 1000) { $('fps').textContent = `${frames} fps · ${state.cols}×${state.rows}`; frames = 0; fpsT = t; }
   requestAnimationFrame(loop);
@@ -220,7 +223,7 @@ function toggle(id, key) { state[key] = !state[key]; $(id).setAttribute('aria-pr
 
 $('invert').onclick = () => toggle('invert', 'invert');
 $('flip').onclick = () => toggle('flip', 'flip');
-$('freeze').onclick = () => toggle('freeze', 'frozen');
+$('freeze').onclick = () => { toggle('freeze', 'frozen'); start(); };
 $('size').oninput = resize;
 $('snap').onclick = () => {
   const a = document.createElement('a');
@@ -244,7 +247,7 @@ const wake = () => { const bar = $('bar'); bar.classList.remove('idle'); clearTi
 addEventListener('pointermove', wake); addEventListener('pointerdown', wake);
 addEventListener('resize', resize);
 
-resize(); startCamera(); requestAnimationFrame(loop);
+resize(); startCamera(); start();
 </script>
 </body>
 </html>

@@ -42,6 +42,9 @@
   .stagewrap { position: sticky; top: 16px; }
   canvas { display: block; width: 100%; height: auto; aspect-ratio: 4 / 5; border: 3px solid var(--line);
            cursor: grab; touch-action: pan-y; background: var(--field); }
+  /* Dim the old place while a new one loads; the delay keeps fast loads from flickering */
+  #c { transition: opacity 250ms cubic-bezier(.23, 1, .32, 1); }
+  #c.loading { opacity: .45; transition-delay: 250ms; }
   canvas:active { cursor: grabbing; }
   .hint { color: var(--dim); font-size: 12px; margin-top: 8px; }
   .credit { color: var(--dim); font-size: 11px; margin-top: 18px; }
@@ -438,7 +441,7 @@ async function go(lat, lon, name) {
   finally { if (id === loadId) busy(false); }
 }
 // Disable Go and the presets while a place loads, so clicks can't stack Overpass/Nominatim calls
-function busy(on) { $('search').setAttribute('aria-busy', on); document.querySelectorAll('#search button, #presets button').forEach(b => (b.disabled = on)); }
+function busy(on) { $('search').setAttribute('aria-busy', on); cv.classList.toggle('loading', on); document.querySelectorAll('#search button, #presets button').forEach(b => (b.disabled = on)); }
 
 $('search').addEventListener('submit', async e => {
   e.preventDefault();
