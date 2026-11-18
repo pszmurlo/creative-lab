@@ -392,7 +392,7 @@ function renderWall() {
     fig.onkeydown = e => { if (e.key === 'Enter') openLb(i); };
     wall.append(fig);
   });
-  document.getElementById('count').textContent = `${items.length} posters from your bookmarks · captured 18.11.2026`;
+  document.getElementById('count').textContent = `${items.length} posters from your bookmarks · captured ${(window.BOOKMARKS_CAPTURED || '').split('-').reverse().join('.')}`;
 }
 
 // ---------- lightbox ----------
