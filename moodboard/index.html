@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moodboard</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&family=Playfair+Display:wght@700&family=Lora&family=Cormorant+Garamond:wght@600&family=Inter&family=Fraunces:wght@700&family=Work+Sans&family=Syne:wght@800&family=IBM+Plex+Sans&family=DM+Serif+Display&family=DM+Sans&display=swap">
+<style>
+  /* Layout: header; picker (search, tray of chosen paintings, grid); then the board: collage | palette, type, poster */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  header { border-bottom: 3px solid var(--line); padding-bottom: 16px; margin: 14px 0 20px; display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: end; justify-content: space-between; }
+  h1 { font: 400 clamp(56px, 10vw, 124px)/.85 var(--display); text-transform: uppercase; margin: 0; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); max-width: 54ch; margin: 0; }
+  h2 { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin: 0 0 10px; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  input[type=search], input[type=text] { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; min-width: 0; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .note { color: var(--dim); font-size: 12px; }
+
+  /* Picker */
+  .tray { display: flex; gap: 8px; flex-wrap: wrap; min-height: 72px; align-items: center; margin: 12px 0; }
+  .tray .slot { width: 64px; height: 64px; border: 2px dashed var(--dim); display: grid; place-items: center; color: var(--dim); font: 400 22px var(--display); }
+  .tray button.pick { width: 68px; height: 68px; padding: 0; border: 2px solid var(--line); position: relative; overflow: hidden; }
+  .tray button.pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tray button.pick::after { content: "×"; position: absolute; top: 2px; right: 2px; background: var(--bg); color: var(--fg); font: 700 12px/1 var(--mono); padding: 2px 4px; }
+  details.browse { border-top: 2px solid var(--line); margin-top: 8px; }
+  details.browse summary { cursor: pointer; padding: 10px 0; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  ul.grid { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 110px), 1fr)); }
+  ul.grid button { width: 100%; padding: 0; border: 2px solid transparent; background: var(--field); display: block; }
+  ul.grid button[aria-pressed=true] { border-color: var(--acc); }
+  ul.grid img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  ul.grid .pal { display: flex; height: 6px; }
+
+  /* Board */
+  .board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; margin-top: 28px; align-items: start; }
+  @media (max-width: 900px) { .board { grid-template-columns: minmax(0, 1fr); } }
+  .collage { display: grid; gap: 8px; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 70px; }
+  .collage figure { margin: 0; overflow: hidden; background: var(--field); }
+  .collage img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .collage figcaption { display: none; }
+  .credits { font-size: 11px; color: var(--dim); margin-top: 10px; }
+  .credits a { color: inherit; }
+  .swatches { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  .swatches button { padding: 0; border: 0; display: grid; grid-template-rows: 84px auto; text-align: left; background: none; text-transform: none; letter-spacing: 0; font-weight: 400; }
+  @media (hover: hover) and (pointer: fine) { .swatches button:hover { background: none; color: inherit; } }
+  .swatches i { display: block; border: 1px solid rgb(0 0 0 / .15); }
+  .swatches span { font-size: 11px; padding-top: 4px; }
+  .share { display: flex; height: 10px; margin-top: 8px; border: 1px solid rgb(0 0 0 / .15); }
+  .words { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+  .words span { border: 2px solid var(--line); padding: 2px 8px; font: 400 18px/1.3 var(--display); text-transform: uppercase; }
+  .spec { border: 2px solid var(--line); padding: 16px; margin: 16px 0; }
+  .spec .h { font-size: 40px; line-height: 1.05; margin: 4px 0 8px; }
+  .spec .b { font-size: 15px; line-height: 1.5; margin: 0; }
+  .spec small { color: var(--dim); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+  canvas { width: 100%; height: auto; display: block; border: 1px solid rgb(0 0 0 / .2); }
+  .tip { font-size: 12px; color: var(--acc); }
+  /* Touch baseline (same as the other pages): no tap flash, no double-tap delay, press feedback, no iOS input zoom */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, summary { touch-action: manipulation; }
+  button, summary { -webkit-user-select: none; user-select: none; }
+  button { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  @media (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
+    button { min-block-size: 44px; }
+  }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../">← Creative Lab</a>
+  <header>
+    <h1>Mood<br>board<span>.</span></h1>
+    <p class="lede">Pick up to five paintings. The board pools their colours into one palette, reads the mood from it, picks a type pairing to match and sets a poster. No AI, just colour maths.</p>
+  </header>
+
+  <h2>Your paintings <span class="note" id="count"></span></h2>
+  <div class="tray" id="tray"></div>
+  <div class="row">
+    <button type="button" class="primary" id="surprise">Surprise me</button>
+    <button type="button" id="clear">Clear</button>
+    <span class="tip" role="status" id="status"></span>
+  </div>
+
+  <details class="browse" id="browse">
+    <summary>Browse 650 paintings</summary>
+    <div class="row"><input type="search" id="q" placeholder="Search title or artist" aria-label="Search paintings"></div>
+    <ul class="grid" id="grid"></ul>
+    <div class="row" style="margin-top:10px"><button type="button" id="more">Show more</button></div>
+  </details>
+
+  <section class="board" id="board" hidden>
+    <div>
+      <div class="collage" id="collage"></div>
+      <p class="credits" id="credits"></p>
+    </div>
+    <div>
+      <h2>Palette <span class="note">· click a colour to copy it</span></h2>
+      <div class="swatches" id="swatches"></div>
+      <div class="share" id="share" aria-hidden="true"></div>
+      <div class="words" id="words"></div>
+
+      <h2>Type</h2>
+      <div class="spec" id="spec"></div>
+      <div class="row"><button type="button" id="nextpair">Next pairing</button><button type="button" id="css">Copy CSS</button></div>
+
+      <h2 style="margin-top:24px">Poster</h2>
+      <div class="row" style="margin-bottom:10px">
+        <input type="text" id="title" aria-label="Poster headline" maxlength="40" style="flex:1">
+        <button type="button" id="png">Save PNG</button>
+      </div>
+      <canvas id="poster" width="1000" height="1414" role="img" aria-label="Poster in the board's palette"></canvas>
+    </div>
+  </section>
+</div>
+
+<script src="../paintings/paintings.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const P = window.PAINTINGS.filter(p => p.pal), byId = new Map(P.map(p => [p.id, p]));
+const MAX = 5;
+
+/* ---------- Colour maths (sRGB <-> CIELAB) ---------- */
+const lin = c => (c /= 255) <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4;
+const gam = c => 255 * (c <= .0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - .055);
+function hexToLab(h) {
+  const n = parseInt(h.slice(1), 16), R = lin(n >> 16), G = lin(n >> 8 & 255), B = lin(n & 255);
+  const f = t => t > .008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+  const X = f((R * .4124 + G * .3576 + B * .1805) / .95047), Y = f(R * .2126 + G * .7152 + B * .0722), Z = f((R * .0193 + G * .1192 + B * .9505) / 1.08883);
+  return [116 * Y - 16, 500 * (X - Y), 200 * (Y - Z)];
+}
+function labToHex([L, a, b]) {
+  const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200, inv = t => t ** 3 > .008856 ? t ** 3 : (t - 16 / 116) / 7.787;
+  const X = inv(fx) * .95047, Y = inv(fy), Z = inv(fz) * 1.08883;
+  const rgb = [X * 3.2406 - Y * 1.5372 - Z * .4986, -X * .9689 + Y * 1.8758 + Z * .0415, X * .0557 - Y * .204 + Z * 1.057];
+  return '#' + rgb.map(c => Math.round(Math.min(255, Math.max(0, gam(c)))).toString(16).padStart(2, '0')).join('');
+}
+const dE = (p, q) => Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
+const lum = h => { const n = parseInt(h.slice(1), 16); return .2126 * lin(n >> 16) + .7152 * lin(n >> 8 & 255) + .0722 * lin(n & 255); };
+const contrast = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+
+// Pool every chosen painting's palette (each painting counts equally) and cluster to six colours
+function merge(paintings, k = 6) {
+  const pts = paintings.flatMap(p => p.pal.map(([h, w]) => ({ lab: hexToLab(h), w: w / paintings.length })));
+  // Seed with the heaviest colour, then always the one farthest from the seeds (weighted)
+  const cent = [pts.reduce((a, b) => b.w > a.w ? b : a).lab];
+  while (cent.length < Math.min(k, pts.length)) cent.push(pts.reduce((best, p) => { const d = Math.min(...cent.map(c => dE(c, p.lab))) * Math.sqrt(p.w); return d > best.d ? { d, lab: p.lab } : best; }, { d: -1 }).lab);
+  let groups;
+  for (let it = 0; it < 12; it++) {
+    groups = cent.map(() => ({ s: [0, 0, 0], w: 0 }));
+    for (const p of pts) { let bi = 0, bd = Infinity; cent.forEach((c, i) => { const d = dE(c, p.lab); if (d < bd) { bd = d; bi = i; } }); const g = groups[bi]; g.w += p.w; for (let j = 0; j < 3; j++) g.s[j] += p.lab[j] * p.w; }
+    groups.forEach((g, i) => { if (g.w) cent[i] = g.s.map(v => v / g.w); });
+  }
+  return cent.map((c, i) => ({ lab: c, hex: labToHex(c), w: groups[i].w })).filter(c => c.w > 0).sort((a, b) => b.w - a.w);
+}
+
+/* ---------- Mood and type ---------- */
+function profile(pal) {
+  let L = 0, C = 0, W = 0, lo = 100, hi = 0;
+  for (const { lab: [l, a, b], w } of pal) { L += l * w; C += Math.hypot(a, b) * w; W += (b + a * .5) * w; lo = Math.min(lo, l); hi = Math.max(hi, l); }
+  return { L, C, W, range: hi - lo };
+}
+function words(p) {
+  return [p.L < 35 ? 'nocturnal' : p.L < 52 ? 'dusky' : p.L < 68 ? 'soft' : 'airy',
+          p.C < 12 ? 'muted' : p.C < 26 ? 'tempered' : 'vivid',
+          p.W > 14 ? 'warm' : p.W < 0 ? 'cool' : 'neutral',
+          p.range > 60 ? 'dramatic' : p.range > 35 ? 'balanced' : 'hushed'];
+}
+const PAIRS = [
+  { name: 'Old master', head: 'Playfair Display', hw: 700, body: 'Lora', t: { L: 35, C: 20, W: 18 } },
+  { name: 'Gallery label', head: 'Cormorant Garamond', hw: 600, body: 'Inter', t: { L: 70, C: 10, W: 6 } },
+  { name: 'Brutalist', head: 'Anton', hw: 400, body: 'Space Mono', t: { L: 50, C: 40, W: 8 } },
+  { name: 'Warm modern', head: 'Fraunces', hw: 700, body: 'Work Sans', t: { L: 58, C: 24, W: 16 } },
+  { name: 'Cool vivid', head: 'Syne', hw: 800, body: 'IBM Plex Sans', t: { L: 55, C: 32, W: -6 } },
+  { name: 'Quiet editorial', head: 'DM Serif Display', hw: 400, body: 'DM Sans', t: { L: 62, C: 12, W: 0 } },
+];
+const rankPairs = p => [...PAIRS].sort((a, b) => score(a, p) - score(b, p));
+const score = (x, p) => ((x.t.L - p.L) / 30) ** 2 + ((x.t.C - p.C) / 20) ** 2 + ((x.t.W - p.W) / 15) ** 2;
+
+// Poster roles: background = dominant colour; ink = best contrast with it; accent = most colourful of the rest
+function roles(pal) {
+  const bg = pal[0].hex;
+  // Prefer a palette colour that reaches 4.5:1 (WCAG AA for body text); otherwise near-black or off-white, whichever is stronger
+  const fromPal = pal.slice(1).map(c => c.hex).filter(h => contrast(h, bg) >= 4.5);
+  const pool = fromPal.length ? fromPal : ['#111111', '#f6f3ec', '#000000', '#ffffff'];
+  const ink = pool.reduce((a, b) => contrast(b, bg) > contrast(a, bg) ? b : a);
+  const rest = pal.slice(1).filter(c => c.hex !== ink);
+  const acc = (rest.length ? rest : pal).reduce((a, b) => Math.hypot(b.lab[1], b.lab[2]) > Math.hypot(a.lab[1], a.lab[2]) ? b : a).hex;
+  return { bg, ink, acc, blocks: pal.slice(1).map(c => c) };
+}
+
+/* ---------- State ---------- */
+let chosen = [], pairIdx = 0, shown = 48, filter = '';
+const setStatus = t => { $('status').textContent = t; clearTimeout(setStatus.t); setStatus.t = setTimeout(() => $('status').textContent = '', 2200); };
+function persist() { history.replaceState(null, '', chosen.length ? '#ids=' + chosen.map(p => p.id).join(',') : location.pathname); }
+function toggle(p) {
+  const i = chosen.indexOf(p);
+  if (i >= 0) chosen.splice(i, 1);
+  else if (chosen.length >= MAX) return setStatus(`Five is the limit; remove one first.`);
+  else chosen.push(p);
+  pairIdx = 0; persist(); render();
+}
+
+/* ---------- Rendering ---------- */
+const palStrip = p => `<span class="pal">${p.pal.map(([h, w]) => `<i style="flex:${w};background:${h}"></i>`).join('')}</span>`;
+function renderTray() {
+  $('count').textContent = `· ${chosen.length} of ${MAX}`;
+  const nodes = chosen.map(p => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pick';
+    b.setAttribute('aria-label', `Remove ${p.t}`);
+    const img = new Image(); img.src = p.img; img.alt = ''; b.append(img); b.onclick = () => toggle(p); return b;
+  });
+  for (let i = chosen.length; i < MAX; i++) { const s = document.createElement('span'); s.className = 'slot'; s.textContent = i + 1; s.setAttribute('aria-hidden', 'true'); nodes.push(s); }
+  $('tray').replaceChildren(...nodes);
+}
+function renderGrid() {
+  const q = filter.toLowerCase(), list = q ? P.filter(p => (p.t + ' ' + p.a).toLowerCase().includes(q)) : P;
+  $('grid').replaceChildren(...list.slice(0, shown).map(p => {
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.type = 'button'; b.setAttribute('aria-pressed', String(chosen.includes(p))); b.setAttribute('aria-label', `${p.t}, ${p.a}`);
+    b.innerHTML = palStrip(p); const img = new Image(); img.src = p.img; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
+    b.prepend(img); b.onclick = () => toggle(p); li.append(b); return li;
+  }));
+  $('more').hidden = list.length <= shown;
+}
+
+let current = null;
+async function renderBoard() {
+  $('board').hidden = !chosen.length; if (!chosen.length) return;
+  // Collage: first painting large, the rest around it
+  const spans = { 1: [[6, 6]], 2: [[4, 6], [2, 6]], 3: [[4, 6], [2, 3], [2, 3]], 4: [[4, 4], [2, 4], [3, 2], [3, 2]], 5: [[4, 4], [2, 2], [2, 2], [3, 2], [3, 2]] }[chosen.length];
+  $('collage').replaceChildren(...chosen.map((p, i) => {
+    const f = document.createElement('figure'); f.style.gridColumn = `span ${spans[i][0]}`; f.style.gridRow = `span ${spans[i][1]}`;
+    const img = new Image(); img.src = p.img; img.alt = `${p.t}, ${p.a}`; f.append(img); return f;
+  }));
+  $('credits').replaceChildren(...chosen.flatMap((p, i) => { const a = document.createElement('a'); a.href = `https://www.metmuseum.org/art/collection/search/${p.id}`; a.target = '_blank'; a.rel = 'noopener'; a.textContent = `${p.t} — ${p.a}${p.d ? ', ' + p.d : ''}`; return i ? [document.createTextNode(' · '), a] : [a]; }));
+
+  const pal = merge(chosen), prof = profile(pal), w = words(prof), pairs = rankPairs(prof), pair = pairs[pairIdx % pairs.length], r = roles(pal);
+  current = { pal, prof, w, pair, r };
+  $('swatches').replaceChildren(...pal.map(c => {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', `Copy ${c.hex}`);
+    b.innerHTML = `<i style="background:${c.hex}"></i><span>${c.hex.toUpperCase()}<br>${Math.round(c.w * 100)}%</span>`;
+    b.onclick = async () => { try { await navigator.clipboard.writeText(c.hex); setStatus(`Copied ${c.hex}`); } catch { setStatus('Copy failed'); } };
+    return b;
+  }));
+  $('share').innerHTML = pal.map(c => `<i style="flex:${c.w};background:${c.hex}"></i>`).join('');
+  $('words').innerHTML = w.map(x => `<span>${x}</span>`).join('');
+  $('spec').style.background = r.bg; $('spec').style.color = r.ink;
+  $('spec').innerHTML = `<small style="color:${r.acc}"></small><p class="h"></p><p class="b"></p>`;
+  $('spec').querySelector('small').textContent = `${pair.name} · ${pair.head} + ${pair.body}`;
+  Object.assign($('spec').querySelector('.h').style, { fontFamily: `"${pair.head}"`, fontWeight: pair.hw });
+  $('spec').querySelector('.h').textContent = cap(w.slice(0, 2).join(' & '));
+  $('spec').querySelector('.b').style.fontFamily = `"${pair.body}"`;
+  $('spec').querySelector('.b').textContent = `Set from ${chosen.length} painting${chosen.length > 1 ? 's' : ''}: ${chosen.map(p => p.a.split(' (')[0]).join(', ')}. Background ${r.bg}, ink ${r.ink}, accent ${r.acc}; contrast ${contrast(r.bg, r.ink).toFixed(1)}:1.`;
+  if (!$('title').dataset.touched) $('title').value = w.slice(0, 2).join(' ').toUpperCase();
+  await drawPoster();
+}
+const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+async function drawPoster(c = $('poster')) {
+  if (!current) return;
+  const { pal, pair, r, w } = current, x = c.getContext('2d'), W = 1000, H = 1414;
+  await Promise.all([document.fonts.load(`${pair.hw} 80px "${pair.head}"`), document.fonts.load(`400 24px "${pair.body}"`)]);
+  x.setTransform(c.width / W, 0, 0, c.width / W, 0, 0);
+  x.fillStyle = r.bg; x.fillRect(0, 0, W, H);
+  // Colour blocks: a stepped stack whose heights follow each colour's share
+  const blocks = pal.slice(1), total = blocks.reduce((s, b) => s + b.w, 0) || 1;
+  let y = 520; const area = 620, seed = chosen.reduce((s, p) => s + p.id, 0);
+  blocks.forEach((b, i) => {
+    const h = Math.max(18, area * b.w / total), inset = 80 + ((seed >> i) % 4) * 60, wdt = W - inset - 80 - (i % 2) * 120;
+    x.fillStyle = b.hex; x.fillRect(inset, y, wdt, h - 8); y += h;
+  });
+  // Accent disc
+  x.fillStyle = r.acc; x.beginPath(); x.arc(W - 210, 300, 130, 0, Math.PI * 2); x.fill();
+  // Headline, fitted to width
+  const text = ($('title').value || '').toUpperCase().trim() || 'UNTITLED';
+  let size = 190; x.fillStyle = r.ink; x.textBaseline = 'alphabetic';
+  const lines = text.split(/\s+/).slice(0, 3);
+  do { x.font = `${pair.hw} ${size}px "${pair.head}"`; size -= 4; } while (Math.max(...lines.map(l => x.measureText(l).width)) > W - 160 && size > 40);
+  lines.forEach((l, i) => x.fillText(l, 80, 200 + i * size * .95));
+  // Footer: words, sources and hex codes in the body face
+  x.font = `400 22px "${pair.body}"`; x.fillStyle = r.ink;
+  x.fillText(w.join(' · '), 80, H - 150);
+  x.font = `400 16px "${pair.body}"`; x.globalAlpha = .8;
+  x.fillText(chosen.map(p => p.a.split(' (')[0]).join(' / ').slice(0, 90), 80, H - 118);
+  x.globalAlpha = 1;
+  pal.forEach((cc, i) => { x.fillStyle = cc.hex; x.fillRect(80 + i * 140, H - 96, 40, 40); x.strokeStyle = r.ink; x.lineWidth = 1.5; x.strokeRect(80 + i * 140, H - 96, 40, 40); x.fillStyle = r.ink; x.font = `400 15px "${pair.body}"`; x.fillText(cc.hex.toUpperCase(), 128 + i * 140, H - 70); });
+}
+
+function render() { renderTray(); renderGrid(); renderBoard(); }
+
+/* ---------- Events ---------- */
+$('q').oninput = e => { filter = e.target.value; shown = 48; renderGrid(); };
+$('more').onclick = () => { shown += 48; renderGrid(); };
+$('clear').onclick = () => { chosen = []; persist(); render(); };
+$('nextpair').onclick = () => { pairIdx++; renderBoard(); };
+$('title').oninput = () => { $('title').dataset.touched = '1'; drawPoster(); };
+$('surprise').onclick = () => {
+  // One random painting plus the four whose palettes sit closest to it
+  const avg = p => { const s = [0, 0, 0]; for (const [h, w] of p.pal) hexToLab(h).forEach((v, i) => s[i] += v * w); return s; };
+  const seed = P[Math.floor(Math.random() * P.length)], a = avg(seed);
+  chosen = [seed, ...P.filter(p => p !== seed).map(p => ({ p, d: dE(a, avg(p)) })).sort((x, y) => x.d - y.d).slice(0, 4).map(x => x.p)];
+  pairIdx = 0; delete $('title').dataset.touched; persist(); render();
+};
+$('css').onclick = async () => {
+  const { pal, pair, r } = current;
+  const css = `:root {\n  --bg: ${r.bg};\n  --ink: ${r.ink};\n  --accent: ${r.acc};\n${pal.map((c, i) => `  --palette-${i + 1}: ${c.hex};`).join('\n')}\n  --font-head: "${pair.head}", serif;\n  --font-body: "${pair.body}", sans-serif;\n}`;
+  try { await navigator.clipboard.writeText(css); setStatus('CSS copied'); } catch { setStatus('Copy failed'); }
+};
+$('png').onclick = async () => {
+  const c = document.createElement('canvas'); c.width = 2000; c.height = 2828; await drawPoster(c);
+  c.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `moodboard-${chosen.map(p => p.id).join('-')}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+};
+
+// Start from the URL (Painted Twin links here with #ids=), otherwise surprise
+const ids = new URLSearchParams(location.hash.slice(1)).get('ids');
+chosen = (ids || '').split(',').map(Number).map(id => byId.get(id)).filter(Boolean).slice(0, MAX);
+if (!chosen.length) $('surprise').click(); else render();
+</script>
+</body>
+</html>

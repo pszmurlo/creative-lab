@@ -37,10 +37,11 @@
   .photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
   .bar .spacer { flex: 1; }
-  button.btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+  button.btn, a.btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
                border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
   button.btn[aria-pressed=true] { background: var(--fg); color: var(--bg); }
-  @media (hover: hover) and (pointer: fine) { button.btn:hover { background: var(--fg); color: var(--bg); } }
+  @media (hover: hover) and (pointer: fine) { button.btn:hover, a.btn:hover { background: var(--fg); color: var(--bg); } }
+  a.btn { text-decoration: none; display: inline-block; }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
 
   .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
@@ -102,6 +103,7 @@
     <button type="button" class="btn" id="twins">Shuffle painting twins</button>
     <button type="button" class="btn" id="mirror" aria-pressed="true">Mirrored matches allowed</button>
     <button type="button" class="btn" id="comp" aria-pressed="false">Show composition</button>
+    <a class="btn" id="mood" href="../moodboard/">Moodboard from these</a>
     <span class="spacer"></span>
     <span class="score" id="score" aria-live="polite"></span>
   </div>
@@ -236,6 +238,8 @@ function show() {
     img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: 'cubic-bezier(.23, 1, .32, 1)' });
   });
   $('score').innerHTML = `${pct(m.d)}%<small>composition match</small>`;
+  const moodIds = [...(current.kind === 'painting' ? [current.item] : []), ...matches.map(x => x.p)].slice(0, 5).map(p => p.id);
+  $('mood').href = `../moodboard/#ids=${moodIds.join(',')}`;
   // Runners-up
   $('runners').replaceChildren(...matches.map((r, i) => {
     const li = document.createElement('li'), b = document.createElement('button');

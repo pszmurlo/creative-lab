@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Build paintings/paintings.js: public-domain paintings from The Met with a composition fingerprint each.
+"""Build paintings/paintings.js: public-domain paintings from The Met with a composition fingerprint and a 6-colour palette each.
 
 Browsers can't read the museum's image pixels (no CORS), so fingerprints are computed here once.
 Run:  python3 paintings/tools/build_index.py [cache_dir]   (needs Pillow; ~15 min for ~600 paintings)
+      python3 paintings/tools/build_index.py [cache_dir] --palettes-only   (refresh palettes from cached images)
 The fingerprint must match fingerprint() in paintings/index.html: stretch to 128×128, then
 16×16 luminance cells and 4×4 RGB cells, both plain box averages.
 """
@@ -11,7 +12,7 @@ from pathlib import Path
 from PIL import Image
 
 API = 'https://collectionapi.metmuseum.org/public/collection/v1.1'
-CACHE = Path(sys.argv[1] if len(sys.argv) > 1 else '/tmp/met-cache'); CACHE.mkdir(parents=True, exist_ok=True)
+CACHE = Path(next((a for a in sys.argv[1:] if not a.startswith('--')), '/tmp/met-cache')); CACHE.mkdir(parents=True, exist_ok=True)
 OUT = Path(__file__).resolve().parent.parent / 'paintings.js'
 UA = {'User-Agent': 'creative-lab-paintings-index/0.1'}
 SEARCHES = [  # (department, query, highlights only)
@@ -48,6 +49,13 @@ def fingerprint(img):
     col = im.resize((4, 4), Image.BOX)
     return lum.tobytes(), col.tobytes()
 
+def palette(img, n=6):
+    # Median-cut on a small copy; returns [[hex, share], ...] biggest share first
+    q = img.convert('RGB').resize((96, 96), Image.BILINEAR).quantize(colors=n, method=Image.Quantize.MEDIANCUT)
+    pal, counts = q.getpalette(), sorted(q.getcolors(), reverse=True)
+    total = sum(c for c, _ in counts)
+    return [['#%02x%02x%02x' % tuple(pal[i * 3:i * 3 + 3]), round(c / total, 3)] for c, i in counts]
+
 def main():
     out, cand = [], ids()
     print(f'{len(cand)} candidates')
@@ -63,7 +71,7 @@ def main():
             L, C = fingerprint(img)
             out.append({'id': oid, 't': o['title'][:120], 'a': o.get('artistDisplayName') or 'Unknown artist',
                         'd': o.get('objectDate', ''), 'img': o['primaryImageSmall'], 'ar': round(img.width / img.height, 3),
-                        'L': base64.b64encode(L).decode(), 'C': base64.b64encode(C).decode()})
+                        'L': base64.b64encode(L).decode(), 'C': base64.b64encode(C).decode(), 'pal': palette(img)})
             if len(out) % 25 == 0: print(len(out), o['title'][:60])
             time.sleep(.1)
         except Exception as e:
@@ -73,5 +81,18 @@ def main():
                    f'window.PAINTINGS = [\n' + ',\n'.join(json.dumps(p, ensure_ascii=False) for p in out) + '\n];\n')
     print(f'wrote {len(out)} paintings to {OUT}')
 
+def palettes_only():
+    # Add or refresh 'pal' on the existing index from cached images, without calling the museum's API
+    lines = OUT.read_text().splitlines(); n = 0
+    for i, line in enumerate(lines):
+        if not line.startswith('{'): continue
+        p = json.loads(line.rstrip(','))
+        f = CACHE / f"{p['id']}.jpg"
+        if not f.exists(): continue
+        p['pal'] = palette(Image.open(f)); n += 1
+        lines[i] = json.dumps(p, ensure_ascii=False) + (',' if line.endswith(',') else '')
+    OUT.write_text('\n'.join(lines) + '\n')
+    print(f'added palettes to {n} paintings')
+
 if __name__ == '__main__':
-    main()
+    palettes_only() if '--palettes-only' in sys.argv else main()
