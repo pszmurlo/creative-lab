@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Loader a Day</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
@@ -15,7 +17,7 @@
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 32px max(16px, 4vw) 80px; }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  .back:hover { color: var(--acc); }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
   header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px 32px;
            border-bottom: 3px solid var(--line); padding-bottom: 16px; margin: 16px 0 24px; }
   h1 { font: 400 clamp(56px, 11vw, 140px)/.85 var(--display); text-transform: uppercase; margin: 0; }
@@ -26,14 +28,14 @@
   .lede { color: var(--dim); max-width: 60ch; margin: 0 0 24px; }
   button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
            border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
-  button:hover { background: var(--fg); color: var(--bg); }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
 
   .grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
   .tile { display: grid; grid-template-rows: 1fr auto; aspect-ratio: 1; width: 100%; padding: 0; text-align: left;
           background: var(--tile); border: 2px solid var(--line); text-transform: none; letter-spacing: 0; font-weight: 400; }
-  .tile:hover { background: var(--tile); color: var(--fg); border-color: var(--acc); }
-  .tile:hover .cap b { color: var(--acc); }
+  @media (hover: hover) and (pointer: fine) { .tile:hover { background: var(--tile); color: var(--fg); border-color: var(--acc); } }
+  @media (hover: hover) and (pointer: fine) { .tile:hover .cap b { color: var(--acc); } }
   .stage { display: grid; place-items: center; overflow: hidden; min-height: 0; }
   .cap { display: flex; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line); font-size: 12px; }
   .cap b { font: 400 18px/1.2 var(--display); text-transform: uppercase; }
@@ -48,6 +50,15 @@
   dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 3px solid var(--line);
            background: var(--bg); color: var(--fg); overscroll-behavior: contain; }
   dialog::backdrop { background: rgb(0 0 0 / .6); overflow: hidden; overscroll-behavior: contain; }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+  dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @media (prefers-reduced-motion: no-preference) {
+    dialog { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+    dialog:not([open]) { scale: .96; }
+    @starting-style { dialog[open] { scale: .96; } }
+  }
   .dlg { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
   .big { display: grid; place-items: center; min-height: 360px; background: var(--tile); border-right: 3px solid var(--line); overflow: hidden; }
   .big > div { scale: 1.6; }
@@ -59,6 +70,19 @@
   .bar { display: flex; flex-wrap: wrap; gap: 8px; }
   .bar .close { margin-left: auto; }
   @media (max-width: 720px) { .dlg { grid-template-columns: 1fr; } .big { min-height: 240px; border-right: 0; border-bottom: 3px solid var(--line); } .big > div { scale: 1.3; } }
+
+  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, .btn, summary { touch-action: manipulation; }
+  button, .btn, summary { -webkit-user-select: none; user-select: none; }
+  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active, .btn:active { transform: scale(.97); }
+  .tile:active { transform: scale(.98); }
+  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+  @media (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
+    button, .btn { min-block-size: 44px; }
+  }
 </style>
 </head>
 <body>
@@ -183,9 +207,12 @@
   document.getElementById('prev').onclick = () => show(cur - 1);
   document.getElementById('next').onclick = () => show(cur + 1);
   document.getElementById('close').onclick = () => dlg.close();
+  let copyT;
   document.getElementById('copy').onclick = async e => {
-    try { await navigator.clipboard.writeText(source(loaders[cur])); e.target.textContent = 'Copied'; }
-    catch { e.target.textContent = 'Copy failed'; }
+    const b = e.currentTarget;
+    try { await navigator.clipboard.writeText(source(loaders[cur])); b.textContent = 'Copied'; }
+    catch { b.textContent = 'Copy failed'; }
+    clearTimeout(copyT); copyT = setTimeout(() => (b.textContent = 'Copy code'), 2000);
   };
   dlg.addEventListener('keydown', e => {
     if (e.key === 'ArrowRight') show(cur + 1);

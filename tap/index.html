@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Tap Log</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
@@ -13,9 +15,9 @@
     :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; --heat: 242 240 235; color-scheme: dark; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
-  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px max(16px, 4vw) 72px; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px max(16px, 4vw, env(safe-area-inset-right)) 72px max(16px, 4vw, env(safe-area-inset-left)); }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  .back:hover { color: var(--acc); }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
   header { border-bottom: 3px solid var(--line); padding-bottom: 18px; margin: 14px 0 24px; }
   h1 { font: 400 clamp(56px, 11vw, 132px)/.85 var(--display); text-transform: uppercase; margin: 0 0 12px; }
   h1 span { color: var(--acc); }
@@ -23,9 +25,9 @@
   h2 { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin: 32px 0 10px; }
   button, .btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
            border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; text-decoration: none; display: inline-block; }
-  button:hover, .btn:hover { background: var(--fg); color: var(--bg); }
+  @media (hover: hover) and (pointer: fine) { button:hover, .btn:hover { background: var(--fg); color: var(--bg); } }
   button.primary { background: var(--fg); color: var(--bg); }
-  button.primary:hover { background: var(--acc); border-color: var(--acc); }
+  @media (hover: hover) and (pointer: fine) { button.primary:hover { background: var(--acc); border-color: var(--acc); } }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   input[type=text], input[type=url] { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; min-width: 0; }
   label { display: grid; gap: 4px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
@@ -57,18 +59,27 @@
   /* Sticker dialog */
   dialog { width: min(560px, calc(100vw - 32px)); border: 3px solid var(--line); background: var(--bg); color: var(--fg); padding: 20px; overscroll-behavior: contain; }
   dialog::backdrop { background: rgb(0 0 0 / .6); overflow: hidden; overscroll-behavior: contain; }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+  dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @media (prefers-reduced-motion: no-preference) {
+    dialog { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
+    dialog:not([open]) { scale: .96; }
+    @starting-style { dialog[open] { scale: .96; } }
+  }
   dialog h3 { margin: 0 0 12px; font: 400 34px/1 var(--display); text-transform: uppercase; }
   .qr { display: grid; place-items: center; background: #fff; padding: 12px; width: 220px; margin: 0 auto 12px; }
   .qr img, .qr svg { width: 196px; height: 196px; display: block; }
   code.url { display: block; padding: 10px; background: var(--field); border: 1px solid var(--line); word-break: break-all; font-size: 12px; }
   .copy { position: relative; display: inline-flex; align-items: center; gap: 8px; }
   .tip { font-size: 12px; color: var(--acc); opacity: 0; transition: opacity .15s; }
-  .tip:not(:empty) { opacity: 1; }
+  .tip.show { opacity: 1; }
   .dlg-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
   .dlg-acts .close { margin-left: auto; }
 
   /* Tap screen */
-  .tapscreen { min-height: 100dvh; display: grid; place-content: center; text-align: center; gap: 16px; padding: 24px 16px; box-sizing: border-box; }
+  .tapscreen { min-height: 100dvh; display: grid; place-content: center; text-align: center; gap: 16px; padding: max(24px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); box-sizing: border-box; }
   .tapscreen .emo { font-size: clamp(96px, 30vw, 180px); line-height: 1; }
   .tapscreen h1 { font-size: clamp(48px, 14vw, 110px); margin: 0; }
   .tapscreen .meta { color: var(--dim); font-size: 15px; }
@@ -80,6 +91,20 @@
   .emo, #emoji, dialog h3 { font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", system-ui, sans-serif; }
   dialog h3 { font-family: var(--display), "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
   [hidden] { display: none !important; }
+
+  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, .btn, summary { touch-action: manipulation; }
+  button, .btn, summary { -webkit-user-select: none; user-select: none; }
+  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active, .btn:active { transform: scale(.97); }
+  .sr { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .btn:has(input:focus-visible) { outline: 3px solid var(--acc); outline-offset: 2px; }
+  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+  @media (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
+    button, .btn { min-block-size: 44px; }
+  }
 </style>
 </head>
 <body>
@@ -104,9 +129,9 @@
   </header>
 
   <form class="new" id="newtag">
-    <label>Emoji <input type="text" id="emoji" value="☕" maxlength="8" required></label>
-    <label>Name <input type="text" id="name" placeholder="Coffee" maxlength="40" required></label>
-    <label class="wide">Then open (optional) <input type="url" id="go" placeholder="https://open.spotify.com/playlist/…"></label>
+    <label>Emoji <input type="text" id="emoji" value="☕" maxlength="8" required autocomplete="off" enterkeyhint="next"></label>
+    <label>Name <input type="text" id="name" placeholder="Coffee" maxlength="40" required autocapitalize="words" enterkeyhint="next"></label>
+    <label class="wide">Then open (optional) <input type="url" id="go" placeholder="https://open.spotify.com/playlist/…" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="done"></label>
     <button class="primary wide" type="submit">New sticker</button>
   </form>
 
@@ -119,7 +144,7 @@
   <h2>Your data</h2>
   <div class="tools">
     <button type="button" id="export">Export JSON</button>
-    <label class="btn" style="display:inline-block">Import JSON<input type="file" id="import" accept="application/json" hidden></label>
+    <label class="btn" style="display:inline-block">Import JSON<input type="file" id="import" accept="application/json" class="sr"></label>
     <button type="button" id="clear">Clear all</button>
   </div>
   <p class="note">Taps live in this browser's storage. Export now and then if you care about the history; clearing site data deletes it.</p>
@@ -222,18 +247,27 @@ function heatmap(days) {
   return wrap;
 }
 
+// "Log now" feedback: today's cell pulses and the new row fades in (opacity only under reduced motion)
+function pulse(slug) {
+  const easing = 'cubic-bezier(.23, 1, .32, 1)', calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cell = $('cards').querySelector(`[data-slug="${CSS.escape(slug)}"] .heat i.today`);
+  cell?.animate(calm ? [{ opacity: .4 }, { opacity: 1 }] : [{ transform: 'scale(1.6)' }, { transform: 'none' }], { duration: calm ? 200 : 300, easing });
+  $('recent').firstElementChild?.animate(calm ? [{ opacity: 0 }, { opacity: 1 }]
+    : [{ opacity: 0, transform: 'translateY(-4px)' }, { opacity: 1, transform: 'none' }], { duration: 200, easing });
+}
+
 function renderDash() {
   const cards = $('cards'), slugs = Object.keys(tags);
   if (!slugs.length) {
     cards.innerHTML = '<p class="empty">No stickers yet. Make one above, write it to an NFC sticker or print its QR code, and tap away.</p>';
   } else cards.replaceChildren(...slugs.map(slug => {
-    const t = tags[slug], s = statsFor(slug), c = document.createElement('article'); c.className = 'card';
+    const t = tags[slug], s = statsFor(slug), c = document.createElement('article'); c.className = 'card'; c.dataset.slug = slug;
     c.innerHTML = `<div class="top"><span class="emo" aria-hidden="true"></span><div><b></b><span class="stats"><strong>${s.today}</strong> today · <strong>${s.streak}</strong>-day streak · ${s.total} total</span></div></div><div class="acts"></div>`;
     c.querySelector('.emo').textContent = t.e; c.querySelector('b').textContent = t.n;
     c.insertBefore(heatmap(s.days), c.querySelector('.acts'));
     const acts = c.querySelector('.acts');
     const mk = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = fn; acts.append(b); };
-    mk('Log now', () => { log.push({ t: slug, ts: Date.now() }); save(); renderDash(); });
+    mk('Log now', () => { log.push({ t: slug, ts: Date.now() }); save(); renderDash(); pulse(slug); });
     mk('Sticker', () => openSticker(slug));
     mk('Remove', () => { if (confirm(`Remove "${t.n}" and its ${s.total} taps?`)) { delete tags[slug]; log = log.filter(x => x.t !== slug); save(); renderDash(); } });
     return c;
@@ -285,8 +319,11 @@ function report(button, ok) {
   const tip = button.nextElementSibling;
   clearTimeout(timers.get(button));
   tip.textContent = '';
-  requestAnimationFrame(() => (tip.textContent = ok ? 'Copied' : 'Copy failed'));
-  timers.set(button, setTimeout(() => (tip.textContent = ''), 2000));
+  requestAnimationFrame(() => { tip.textContent = ok ? 'Copied' : 'Copy failed'; tip.classList.add('show'); });
+  timers.set(button, setTimeout(() => {
+    tip.classList.remove('show');
+    timers.set(button, setTimeout(() => (tip.textContent = ''), 200)); // after the 150ms fade
+  }, 2000));
 }
 async function copy(button, target) {
   try { await navigator.clipboard.writeText(target.innerText.trim()); report(button, true); } catch { report(button, false); }

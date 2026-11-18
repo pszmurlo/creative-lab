@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Brick Room</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
@@ -17,7 +19,7 @@
           grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
   @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } .stagewrap { order: -1; } }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  .back:hover { color: var(--acc); }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
   h1 { font: 400 clamp(52px, 7vw, 92px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 20px; }
@@ -28,7 +30,7 @@
   input[type=range] { flex: 1; accent-color: var(--acc); min-width: 0; }
   button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
            border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
-  button:hover { background: var(--fg); color: var(--bg); }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
   button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   .stepno { font: 400 44px/1 var(--display); min-width: 3ch; text-align: center; }
@@ -44,6 +46,19 @@
   canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 3px solid var(--line); background: var(--field); }
   .tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
   .tools .hint { color: var(--dim); font-size: 12px; margin-left: auto; }
+  @media (hover: none) { .tools .hint { display: none; } } /* keyboard shortcuts, useless on touch */
+
+  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, .btn, summary { touch-action: manipulation; }
+  button, .btn, summary { -webkit-user-select: none; user-select: none; }
+  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active, .btn:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
+  @media (pointer: coarse) {
+    input, select, textarea { font-size: 16px !important; }
+    button, .btn { min-block-size: 44px; }
+  }
 </style>
 </head>
 <body>
@@ -199,6 +214,8 @@ function update() {
   $('step').value = state.step;
   $('steptotal').textContent = `of ${steps.length}`;
   $('all').setAttribute('aria-pressed', String(state.all));
+  $('prev').disabled = !state.all && state.step === 1;
+  $('next').disabled = !state.all && state.step === steps.length;
   const now = state.all ? m.bricks : m.bricks.filter(b => b.z === steps[state.step - 1]);
   $('stepcount').textContent = `${now.length} parts`;
   renderParts($('stepparts'), now);
@@ -228,14 +245,18 @@ const turn = d => { state.view = (state.view + d + 4) % 4; draw(); };
 $('rl').onclick = () => turn(-1); $('rr').onclick = () => turn(1);
 document.addEventListener('keydown', e => {
   if (e.target.closest('select, input')) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === 'ArrowRight') go(state.all ? 1 : state.step + 1);
   if (e.key === 'ArrowLeft') go(state.all ? steps.length : state.step - 1);
   if (e.key === '[') turn(-1);
   if (e.key === ']') turn(1);
 });
+let copyT;
 $('copy').onclick = async e => {
   const text = partsList(MODELS[state.m].bricks).map(({ b, n }) => `${n}\t${COLORS[b.c][0]}\t${partName(b)}`).join('\n');
-  try { await navigator.clipboard.writeText(text); e.target.textContent = 'Copied'; } catch { e.target.textContent = 'Copy failed'; }
+  const b = e.currentTarget;
+  try { await navigator.clipboard.writeText(text); b.textContent = 'Copied'; } catch { b.textContent = 'Copy failed'; }
+  clearTimeout(copyT); copyT = setTimeout(() => (b.textContent = 'Copy list'), 2000);
 };
 $('png').onclick = () => {
   const out = document.createElement('canvas'); out.width = out.height = 2000;
