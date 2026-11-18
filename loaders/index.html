@@ -68,7 +68,7 @@
     <h1>Loader<br>a day<span>.</span></h1>
     <div class="meta">
       <div class="count" id="count"></div>
-      <button id="motion" type="button" aria-pressed="true">Motion on</button>
+      <button id="motion" type="button">Pause all</button>
     </div>
   </header>
   <p class="lede">Thirty days, one loading animation each. Pure HTML and CSS, so every one can be copied straight into a project. Click a loader to see it bigger and grab the code.</p>
@@ -95,13 +95,15 @@
 <script src="loaders.js"></script>
 <script>
   // Each loader renders in its own shadow root so its CSS can't leak into the page or into other loaders.
-  // Motion is paused for off-screen tiles, and for everyone when the visitor prefers reduced motion (they can turn it on).
+  // Off-screen tiles pause. Reduced-motion visitors get each loader's own slowed-down version (it lives in its CSS).
+  // Forced colors (Windows High Contrast) would erase the loaders' fills, so they opt out and draw in system colors.
   const TOTAL = 30;
   const loaders = [...window.LOADERS].sort((a, b) => a.day - b.day);
   const pad = n => String(n).padStart(2, '0');
-  const PAUSE_CSS = `:host { display: block; } :host([data-paused]) *, :host([data-paused]) *::before, :host([data-paused]) *::after { animation-play-state: paused !important; }`;
+  const PAUSE_CSS = `:host { display: block; } :host([data-paused]) *, :host([data-paused]) *::before, :host([data-paused]) *::after { animation-play-state: paused !important; }
+@media (forced-colors: active) { :host { --ink: CanvasText; --acc: Highlight; } *, *::before, *::after { forced-color-adjust: none; } }`;
 
-  let motionOn = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let motionOn = true;
   const hosts = new Set();
 
   function mount(el, l) {
@@ -150,12 +152,11 @@
   }
   document.getElementById('count').innerHTML = `${pad(loaders.length)}<small> / ${TOTAL} days</small>`;
 
-  // Motion toggle
+  // Pause / play toggle
   const motionBtn = document.getElementById('motion');
   function setMotion(on) {
     motionOn = on;
-    motionBtn.textContent = on ? 'Motion on' : 'Motion off';
-    motionBtn.setAttribute('aria-pressed', String(on));
+    motionBtn.textContent = on ? 'Pause all' : 'Play all';
     hosts.forEach(syncPause);
   }
   motionBtn.addEventListener('click', () => setMotion(!motionOn));
