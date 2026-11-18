@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brick Room</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: instructions column (steps, parts) on the left, the isometric model on the right; stacks on narrow screens */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; display: grid; gap: 32px;
+          grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } .stagewrap { order: -1; } }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  .back:hover { color: var(--acc); }
+  h1 { font: 400 clamp(52px, 7vw, 92px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); margin: 0 0 20px; }
+  h2 { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin: 22px 0 8px; display: flex; justify-content: space-between; }
+  h2 span { color: var(--dim); font-weight: 400; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  select { flex: 1; min-width: 0; font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; }
+  input[type=range] { flex: 1; accent-color: var(--acc); min-width: 0; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
+  button:hover { background: var(--fg); color: var(--bg); }
+  button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .stepno { font: 400 44px/1 var(--display); min-width: 3ch; text-align: center; }
+  .stepno small { font: 13px var(--mono); color: var(--dim); }
+  ul.parts { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  ul.parts li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+  .sw { width: 22px; height: 14px; border: 1px solid rgb(0 0 0 / .35); }
+  .qty { font-weight: 700; }
+  .note { color: var(--dim); font-size: 12px; }
+  details { border-top: 2px solid var(--line); margin-top: 22px; padding-top: 4px; }
+  summary { cursor: pointer; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 8px 0; }
+  .stagewrap { position: sticky; top: 16px; }
+  canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 3px solid var(--line); background: var(--field); }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; align-items: center; }
+  .tools .hint { color: var(--dim); font-size: 12px; margin-left: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <a class="back" href="../">← Creative Lab</a>
+    <h1>Brick<br>Room<span>.</span></h1>
+    <p class="lede">Rooms designed as buildable brick models, with step-by-step instructions and a parts list. Describe a room to Claude and it adds a new model here.</p>
+
+    <div class="row"><select id="model" aria-label="Model"></select></div>
+    <p class="note" id="mnote"></p>
+
+    <h2>Step <span id="steptotal"></span></h2>
+    <div class="row">
+      <button type="button" id="prev" aria-label="Previous step">←</button>
+      <div class="stepno" id="stepno" aria-live="polite"></div>
+      <button type="button" id="next" aria-label="Next step">→</button>
+      <input type="range" id="step" min="1" value="1" aria-label="Step">
+    </div>
+    <div class="row" style="margin-top:8px"><button type="button" id="all" aria-pressed="false">Show finished model</button></div>
+
+    <h2>This step <span id="stepcount"></span></h2>
+    <ul class="parts" id="stepparts"></ul>
+
+    <details>
+      <summary>Full parts list <span id="totalcount"></span></summary>
+      <ul class="parts" id="allparts"></ul>
+      <div class="row" style="margin-top:12px"><button type="button" id="copy">Copy list</button></div>
+    </details>
+  </div>
+
+  <div class="stagewrap">
+    <canvas id="c" role="img" aria-label="Brick model"></canvas>
+    <div class="tools">
+      <button type="button" id="rl" aria-label="Turn left">⟲</button>
+      <button type="button" id="rr" aria-label="Turn right">⟳</button>
+      <button type="button" id="png">Save PNG</button>
+      <span class="hint">← → steps · [ ] turn</span>
+    </div>
+  </div>
+</div>
+
+<script src="models.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const cv = $('c'), ctx = cv.getContext('2d');
+const SIZE = 1000;
+const state = { m: 0, step: 1, all: false, view: 0 };
+let steps = []; // distinct starting heights (plates), one build step each
+
+const shade = (hex, k) => { // k < 0 darkens, k > 0 lightens
+  const n = parseInt(hex.slice(1), 16), ch = [n >> 16, n >> 8 & 255, n & 255];
+  return `rgb(${ch.map(c => Math.round(k < 0 ? c * (1 + k) : c + (255 - c) * k)).join(',')})`;
+};
+const partName = b => `${Math.min(b.w, b.d)} × ${Math.max(b.w, b.d)} ${b.kind}`;
+
+// Rotate the model a quarter turn `k` times; returns bricks in view space and the grid size
+function viewBricks(m, k) {
+  let W = m.w, D = m.d, out = m.bricks.map((b, i) => ({ ...b, i }));
+  for (let t = 0; t < k; t++) {
+    out = out.map(b => ({ ...b, x: D - (b.y + b.d), y: b.x, w: b.d, d: b.w }));
+    [W, D] = [D, W];
+  }
+  return { bricks: out, W, D };
+}
+
+function draw(c = ctx, px = cv.width) {
+  const m = MODELS[state.m], { bricks, W, D } = viewBricks(m, state.view);
+  const zStep = steps[state.step - 1], last = state.all ? Infinity : zStep;
+  const shown = bricks.filter(b => b.z <= last);
+  const fresh = b => !state.all && b.z === zStep;
+
+  // Occupancy: cell -> brick index, in plates
+  const cell = new Map(), key = (x, y, z) => `${x},${y},${z}`;
+  for (const b of shown) for (let x = b.x; x < b.x + b.w; x++) for (let y = b.y; y < b.y + b.d; y++) for (let z = b.z; z < b.z + b.h; z++) cell.set(key(x, y, z), b);
+  let zMax = 0; for (const b of bricks) zMax = Math.max(zMax, b.z + b.h);
+
+  // Projection: +x and +y come toward the viewer. A plate is 0.4 stud tall.
+  const C = Math.cos(Math.PI / 6), PH = .4;
+  const bw = (W + D) * C, bh = (W + D) * .5 + zMax * PH + .6;
+  const s = Math.min(SIZE * .86 / bw, SIZE * .86 / bh);
+  const ox = SIZE / 2 - (W - D) * C * s / 2, oy = (SIZE - bh * s) / 2 + (zMax * PH + .6) * s;
+  const P = (x, y, z) => [ox + (x - y) * C * s, oy + (x + y) * .5 * s - z * PH * s];
+
+  c.setTransform(px / SIZE, 0, 0, px / SIZE, 0, 0);
+  c.fillStyle = getComputedStyle(document.body).getPropertyValue('--field') || '#f4f2ed';
+  c.fillRect(0, 0, SIZE, SIZE);
+  // Baseplate footprint
+  c.beginPath(); [P(0, 0, 0), P(W, 0, 0), P(W, D, 0), P(0, D, 0)].forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath();
+  c.fillStyle = 'rgb(128 128 128 / .12)'; c.fill();
+
+  const lw = Math.max(.6, s * .025);
+  const face = (pts, fill, edges) => {
+    c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.closePath();
+    c.fillStyle = fill; c.fill();
+    c.beginPath();
+    edges.forEach((on, i) => { if (!on) return; const a = pts[i], b = pts[(i + 1) % 4]; c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); });
+    c.strokeStyle = 'rgb(0 0 0 / .55)'; c.lineWidth = lw; c.stroke();
+  };
+  const same = (b, x, y, z) => cell.get(key(x, y, z)) === b;
+
+  // Draw unit cells low to high, far to near
+  const cells = [...cell.entries()].map(([k, b]) => { const [x, y, z] = k.split(',').map(Number); return { x, y, z, b }; });
+  cells.sort((a, b) => a.z - b.z || (a.x + a.y) - (b.x + b.y) || a.x - b.x);
+  for (const { x, y, z, b } of cells) {
+    const hex = COLORS[b.c][1];
+    const base = fresh(b) || state.all ? hex : null;
+    const tone = k => base ? shade(hex, k) : shade(hex, k * .4 + .55); // earlier steps fade out
+    // Top
+    if (!cell.has(key(x, y, z + 1))) {
+      face([P(x, y, z + 1), P(x + 1, y, z + 1), P(x + 1, y + 1, z + 1), P(x, y + 1, z + 1)], tone(0),
+           [!same(b, x, y - 1, z), !same(b, x + 1, y, z), !same(b, x, y + 1, z), !same(b, x - 1, y, z)]);
+      // Stud, only on the top surface of a brick or plate (tiles are smooth)
+      if (b.kind !== 'tile' && z === b.z + b.h - 1) {
+        const [cx, cy] = P(x + .5, y + .5, z + 1), rx = .3 * s * C * Math.SQRT2, ry = .3 * s * .5 * Math.SQRT2, hh = .17 * s;
+        c.beginPath(); c.ellipse(cx, cy, rx, ry, 0, 0, Math.PI); c.lineTo(cx - rx, cy - hh); c.ellipse(cx, cy - hh, rx, ry, 0, Math.PI, 0, true); c.closePath();
+        c.fillStyle = tone(-.18); c.fill(); c.strokeStyle = 'rgb(0 0 0 / .4)'; c.lineWidth = lw * .8; c.stroke();
+        c.beginPath(); c.ellipse(cx, cy - hh, rx, ry, 0, 0, Math.PI * 2); c.fillStyle = tone(.12); c.fill(); c.stroke();
+      }
+    }
+    // Side facing +x
+    if (!cell.has(key(x + 1, y, z)))
+      face([P(x + 1, y, z + 1), P(x + 1, y + 1, z + 1), P(x + 1, y + 1, z), P(x + 1, y, z)], tone(-.16),
+           [!same(b, x, y, z + 1), !same(b, x, y + 1, z), !same(b, x, y, z - 1), !same(b, x, y - 1, z)]);
+    // Side facing +y
+    if (!cell.has(key(x, y + 1, z)))
+      face([P(x, y + 1, z + 1), P(x + 1, y + 1, z + 1), P(x + 1, y + 1, z), P(x, y + 1, z)], tone(-.32),
+           [!same(b, x, y, z + 1), !same(b, x + 1, y, z), !same(b, x, y, z - 1), !same(b, x - 1, y, z)]);
+  }
+}
+
+function partsList(list) {
+  const map = new Map();
+  for (const b of list) {
+    const k = `${b.kind}|${Math.min(b.w, b.d)}x${Math.max(b.w, b.d)}|${b.c}`;
+    const e = map.get(k) || { b, n: 0 }; e.n++; map.set(k, e);
+  }
+  return [...map.values()].sort((a, z) => a.b.kind.localeCompare(z.b.kind) || COLORS[a.b.c][0].localeCompare(COLORS[z.b.c][0]) || (a.b.w * a.b.d) - (z.b.w * z.b.d));
+}
+function renderParts(ul, list) {
+  ul.replaceChildren(...partsList(list).map(({ b, n }) => {
+    const li = document.createElement('li');
+    const sw = document.createElement('span'); sw.className = 'sw'; sw.style.background = COLORS[b.c][1];
+    const name = document.createElement('span'); name.textContent = `${COLORS[b.c][0]} ${partName(b)}`;
+    const q = document.createElement('span'); q.className = 'qty'; q.textContent = `×${n}`;
+    li.append(sw, name, q); return li;
+  }));
+}
+
+function update() {
+  const m = MODELS[state.m];
+  $('stepno').innerHTML = state.all ? '✓' : `${state.step}`;
+  $('step').value = state.step;
+  $('steptotal').textContent = `of ${steps.length}`;
+  $('all').setAttribute('aria-pressed', String(state.all));
+  const now = state.all ? m.bricks : m.bricks.filter(b => b.z === steps[state.step - 1]);
+  $('stepcount').textContent = `${now.length} parts`;
+  renderParts($('stepparts'), now);
+  cv.setAttribute('aria-label', state.all ? `${m.name}, finished model, ${m.bricks.length} parts`
+    : `${m.name}, step ${state.step} of ${steps.length}: adds ${now.length} parts`);
+  draw();
+}
+function loadModel(i) {
+  state.m = i; const m = MODELS[i];
+  steps = [...new Set(m.bricks.map(b => b.z))].sort((a, b) => a - b);
+  state.step = 1; state.all = true;
+  $('step').max = steps.length;
+  $('mnote').textContent = `${m.note} Build it on a 32 × 32 baseplate (not in the list).`;
+  $('totalcount').textContent = `· ${m.bricks.length} parts`;
+  renderParts($('allparts'), m.bricks);
+  update();
+}
+
+MODELS.forEach((m, i) => $('model').add(new Option(m.name, i)));
+$('model').onchange = e => loadModel(+e.target.value);
+const go = n => { state.all = false; state.step = Math.min(steps.length, Math.max(1, n)); update(); };
+$('prev').onclick = () => go(state.all ? steps.length : state.step - 1);
+$('next').onclick = () => go(state.all ? 1 : state.step + 1);
+$('step').oninput = e => go(+e.target.value);
+$('all').onclick = () => { state.all = !state.all; update(); };
+const turn = d => { state.view = (state.view + d + 4) % 4; draw(); };
+$('rl').onclick = () => turn(-1); $('rr').onclick = () => turn(1);
+document.addEventListener('keydown', e => {
+  if (e.target.closest('select, input')) return;
+  if (e.key === 'ArrowRight') go(state.all ? 1 : state.step + 1);
+  if (e.key === 'ArrowLeft') go(state.all ? steps.length : state.step - 1);
+  if (e.key === '[') turn(-1);
+  if (e.key === ']') turn(1);
+});
+$('copy').onclick = async e => {
+  const text = partsList(MODELS[state.m].bricks).map(({ b, n }) => `${n}\t${COLORS[b.c][0]}\t${partName(b)}`).join('\n');
+  try { await navigator.clipboard.writeText(text); e.target.textContent = 'Copied'; } catch { e.target.textContent = 'Copy failed'; }
+};
+$('png').onclick = () => {
+  const out = document.createElement('canvas'); out.width = out.height = 2000;
+  draw(out.getContext('2d'), 2000);
+  out.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+    a.download = `${MODELS[state.m].name.toLowerCase().replace(/\W+/g, '-')}${state.all ? '' : '-step-' + state.step}.png`; a.click(); });
+};
+
+const dpr = Math.min(2, devicePixelRatio || 1); cv.width = cv.height = Math.round(SIZE * dpr);
+loadModel(0);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => draw());
+</script>
+</body>
+</html>
