@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bookmark Zine</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: controls and the picker on the left; on the right the printable sheet and the zine as it reads once folded */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 32px; grid-template-columns: minmax(0, 340px) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  h1 { font: 400 clamp(52px, 7vw, 92px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); margin: 0 0 20px; }
+  label { display: grid; gap: 6px; margin-bottom: 12px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  select, input[type=text] { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; min-width: 0; }
+  label.inline { display: flex; align-items: center; gap: 8px; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 14px; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  h2 { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin: 22px 0 8px; display: flex; justify-content: space-between; }
+  h2 span { color: var(--dim); font-weight: 400; }
+  ul.pick { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow: auto; border: 2px solid var(--line); background: var(--field); }
+  ul.pick li label { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; margin: 0; padding: 6px 8px; font: 12px/1.35 var(--mono); letter-spacing: 0; text-transform: none; border-bottom: 1px solid color-mix(in srgb, var(--line) 15%, transparent); cursor: pointer; }
+  ul.pick li label b { display: block; font-weight: 700; }
+  ul.pick input { accent-color: var(--acc); width: 16px; height: 16px; margin: 1px 0 0; }
+  .sheet { background: #fff; box-shadow: 0 14px 30px -18px rgb(0 0 0 / .55); border: 1px solid rgb(0 0 0 / .15); }
+  .sheet img { display: block; width: 100%; height: auto; }
+  .spreads { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 12px; }
+  .spread { flex: none; display: flex; box-shadow: 0 10px 20px -14px rgb(0 0 0 / .5); }
+  .spread img { display: block; height: 180px; width: auto; }
+  .spread figcaption { display: none; }
+  figure { margin: 0; }
+  .cap { font-size: 11px; color: var(--dim); text-align: center; margin-top: 4px; }
+  ol.how { color: var(--dim); font-size: 12px; padding-left: 18px; }
+  ol.how li { margin-bottom: 4px; }
+  .status { color: var(--dim); font-size: 12px; min-height: 1.5em; }
+  /* Touch baseline (same as the other pages) */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a { touch-action: manipulation; }
+  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  @media (pointer: coarse) { input, select { font-size: 16px !important; } button { min-block-size: 44px; } }
+  @media print {
+    body { background: #fff; }
+    .wrap { display: block; padding: 0; max-width: none; }
+    .wrap > div:first-child, .preview-extra { display: none !important; }
+    .sheet { border: 0; box-shadow: none; }
+    .sheet img { width: var(--sheet-w); height: var(--sheet-h); }
+  }
+</style>
+<style id="pagesize">@page { size: A4 landscape; margin: 0; }</style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <a class="back" href="../">← Creative Lab</a>
+    <h1>Bookmark<br>zine<span>.</span></h1>
+    <p class="lede">Six of your X bookmarks as an eight-page zine, printed on one sheet, one cut, folded by hand. Pages are set by the <a href="../poster-machine/">Poster Machine</a>.</p>
+
+    <label>Title <input type="text" id="title" value="Bookmarked" maxlength="18"></label>
+    <div class="row">
+      <label>Issue <input type="text" id="issue" value="01" maxlength="4" size="4"></label>
+      <label>Cover ink <select id="ink"></select></label>
+    </div>
+    <div class="row">
+      <label>Paper <select id="paper"><option>A4</option><option>Letter</option><option>A3</option></select></label>
+      <label class="inline"><input type="checkbox" id="guides" checked> fold and cut guides</label>
+    </div>
+    <div class="row">
+      <button type="button" id="shuffle">Shuffle posts</button>
+      <button type="button" id="restyle">New styles</button>
+    </div>
+    <h2>Posts <span id="pickcount"></span></h2>
+    <ul class="pick" id="pick"></ul>
+    <div class="row" style="margin-top:14px">
+      <button type="button" class="primary" id="print">Print / PDF</button>
+      <button type="button" id="png">Save PNG</button>
+    </div>
+    <p class="status" id="status" role="status"></p>
+    <h2>Folding</h2>
+    <ol class="how">
+      <li>Print single-sided, landscape, at 100% (no "fit to page").</li>
+      <li>Fold in half the long way, then in quarters the short way; unfold.</li>
+      <li>Fold in half the long way again, printed side out, and cut along the solid line from the fold to the middle.</li>
+      <li>Open it, fold the long way again, and push the two ends together so the cut opens into a diamond.</li>
+      <li>Fold flat into a booklet with the cover on top.</li>
+    </ol>
+  </div>
+  <div>
+    <div class="sheet"><img id="sheet" alt=""></div>
+    <h2 class="preview-extra">Folded, as it reads</h2>
+    <div class="spreads preview-extra" id="spreads"></div>
+  </div>
+</div>
+
+<script src="../poster-machine/bookmarks.js"></script>
+<script src="../poster-machine/posters.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const all = (window.BOOKMARKS || []).map(b => ({ ...b, seed: 0, layout: null, ink: null }));
+const PAPERS = { A4: [297, 210], Letter: [279.4, 215.9], A3: [420, 297] }; // landscape, mm
+const state = { chosen: [], seed: 1, paper: 'A4' };
+
+/* ---------- Imposition: where each page sits on the sheet ---------- */
+// One sheet, 4 × 2 panels. The top row prints upside down so it reads upright once folded behind:
+//   [5][4][3][2]   (rotated 180°)
+//   [6][7][8][1]   (8 = back cover, 1 = front cover)
+const SLOTS = { 5: [0, 0, true], 4: [1, 0, true], 3: [2, 0, true], 2: [3, 0, true], 6: [0, 1, false], 7: [1, 1, false], 8: [2, 1, false], 1: [3, 1, false] };
+
+/* ---------- Pages (each drawn on the poster's W × H canvas) ---------- */
+const opts = () => ({ layout: 'auto', ink: 'auto', seed: state.seed, total: 6 });
+function cover(ctx) {
+  const ink = INKS[$('ink').value];
+  ctx.fillStyle = ink.bg; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = ink.ink; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  font(ctx, 18, F.mono); ctx.fillText(`ISSUE № ${$('issue').value || '01'}`, M, M - 20);
+  ctx.textAlign = 'right'; ctx.fillText(new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' }).format(new Date()).toUpperCase(), W - M, M - 20); ctx.textAlign = 'left';
+  ctx.fillRect(M, M - 8, INNER, 3);
+  // Title: one word per line, each fitted to the full width
+  const words = ($('title').value || 'Bookmarked').toUpperCase().split(/\s+/).slice(0, 3);
+  let y = TOP + 10;
+  words.forEach((w, i) => {
+    font(ctx, 100, F.display); const s = Math.min(420, 100 * INNER / ctx.measureText(w).width);
+    font(ctx, s, F.display); const a = ascent(ctx, w);
+    if (i === words.length - 1) { ctx.fillStyle = ink.acc; ctx.fillRect(M - 8, y - 8, Math.min(ctx.measureText(w).width + 16, INNER + 16), a + 16); ctx.fillStyle = ink.on; }
+    ctx.fillText(w, M, y + a); ctx.fillStyle = ink.ink; y += a + 18;
+  });
+  // Big outlined issue number in the space left above the contents
+  const num = ($('issue').value || '01').toUpperCase(), roomTop = y + 20, roomBot = H * .6;
+  if (roomBot - roomTop > 120) {
+    font(ctx, 100, F.display); let s = Math.min(100 * INNER / ctx.measureText(num).width, (roomBot - roomTop) / .74);
+    font(ctx, s, F.display); const a = ascent(ctx, num); if (a > roomBot - roomTop) { s *= (roomBot - roomTop) / a; font(ctx, s, F.display); }
+    ctx.lineWidth = 5; ctx.strokeStyle = ink.ink; ctx.textAlign = 'right';
+    ctx.strokeText(num, W - M, roomTop + ascent(ctx, num)); ctx.textAlign = 'left';
+  }
+  // Contents
+  font(ctx, 22, F.mono); y = Math.max(y + 40, H * .62);
+  ctx.fillText('INSIDE', M, y); y += 14; ctx.fillRect(M, y, INNER, 2); y += 40;
+  state.chosen.forEach((it, i) => {
+    const line = `${String(i + 2).padStart(2, '0')}  @${it.handle}`.toUpperCase();
+    font(ctx, 26, F.mono); ctx.fillText(line, M, y); y += 42;
+  });
+  ctx.fillRect(M, H - M - 2, INNER, 3);
+  font(ctx, 18, F.mono); ctx.fillText('A ZINE OF SAVED POSTS', M, H - M + 30);
+}
+function backCover(ctx) {
+  const ink = INKS.newsprint;
+  ctx.fillStyle = ink.bg; ctx.fillRect(0, 0, W, H); ctx.fillStyle = ink.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  font(ctx, 18, F.mono); ctx.fillText('SOURCES', M, M - 20); ctx.fillRect(M, M - 8, INNER, 3);
+  let y = TOP + 30;
+  state.chosen.forEach((it, i) => {
+    font(ctx, 64, F.display); ctx.fillText(String(i + 2).padStart(2, '0'), M, y + 52);
+    font(ctx, 22, F.mono); ctx.fillText(`${it.name}`.toUpperCase().slice(0, 34), M + 110, y + 18);
+    font(ctx, 18, F.mono); ctx.fillText(`@${it.handle} · ${it.date.split('-').reverse().join('.')}`, M + 110, y + 46);
+    const b = fitBlock(ctx, clean(it.text), F.mono, INNER - 110, 60, 16, 1.3, 14); font(ctx, b.size, F.mono);
+    b.lines.slice(0, 2).forEach((l, k) => ctx.fillText(l, M + 110, y + 76 + k * b.size * 1.3));
+    y += 165;
+  });
+  ctx.fillRect(M, H - M - 2, INNER, 3);
+  font(ctx, 18, F.mono); ctx.fillText('MADE WITH CREATIVE LAB', M, H - M + 30);
+  ctx.textAlign = 'right'; ctx.fillText('PSZMURLO.GITHUB.IO/CREATIVE-LAB', W - M, H - M + 30); ctx.textAlign = 'left';
+}
+// Page n (1..8) into a canvas sized to the panel
+function page(n, px, py) {
+  const c = document.createElement('canvas'); c.width = px; c.height = py; const ctx = c.getContext('2d');
+  // Fit the W × H poster into the panel (A-series panels match exactly; Letter gets thin bands)
+  const s = Math.min(px / W, py / H), ox = (px - W * s) / 2, oy = (py - H * s) / 2;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, px, py);
+  const tmp = document.createElement('canvas'); tmp.width = Math.round(W * s); tmp.height = Math.round(H * s);
+  if (n === 1) { tmp.getContext('2d').setTransform(s, 0, 0, s, 0, 0); cover(tmp.getContext('2d')); }
+  else if (n === 8) { tmp.getContext('2d').setTransform(s, 0, 0, s, 0, 0); backCover(tmp.getContext('2d')); }
+  else renderPoster(tmp, state.chosen[n - 2], n - 2, s, opts());
+  ctx.drawImage(tmp, ox, oy);
+  return c;
+}
+
+/* ---------- Sheet ---------- */
+let sheetCanvas = null, pageCanvases = [];
+function build() {
+  const [PWmm, PHmm] = PAPERS[state.paper], dpi = 200, mm = dpi / 25.4;
+  const SW = Math.round(PWmm * mm), SH = Math.round(PHmm * mm), pw = SW / 4, ph = SH / 2;
+  pageCanvases = [null]; for (let n = 1; n <= 8; n++) pageCanvases.push(page(n, Math.round(pw), Math.round(ph)));
+  const sc = document.createElement('canvas'); sc.width = SW; sc.height = SH; const x = sc.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, SW, SH);
+  for (const [n, [col, row, flip]] of Object.entries(SLOTS)) {
+    const p = pageCanvases[n];
+    x.save(); x.translate(col * pw + (flip ? pw : 0), row * ph + (flip ? ph : 0)); if (flip) x.rotate(Math.PI);
+    x.drawImage(p, 0, 0, pw, ph); x.restore();
+  }
+  if ($('guides').checked) {
+    x.lineWidth = Math.max(1, mm * .2); x.strokeStyle = 'rgb(0 0 0 / .35)'; x.setLineDash([mm * 2, mm * 2]);
+    for (let i = 1; i < 4; i++) { x.beginPath(); x.moveTo(i * pw, 0); x.lineTo(i * pw, SH); x.stroke(); }
+    x.beginPath(); x.moveTo(0, ph); x.lineTo(pw, ph); x.moveTo(3 * pw, ph); x.lineTo(SW, ph); x.stroke();
+    // The one cut: along the middle fold, across the two centre panels
+    x.setLineDash([]); x.strokeStyle = '#000'; x.lineWidth = mm * .4;
+    x.beginPath(); x.moveTo(pw, ph); x.lineTo(3 * pw, ph); x.stroke();
+    x.fillStyle = '#000'; x.font = `${Math.round(mm * 3)}px "Space Mono"`; x.fillText('✂ cut', pw + mm * 2, ph - mm * 1.5);
+  }
+  sheetCanvas = sc;
+  $('sheet').src = sc.toDataURL('image/png');
+  $('sheet').alt = `Printable sheet: an eight-page zine of ${state.chosen.length} bookmarks, top row upside down for folding.`;
+  document.documentElement.style.setProperty('--sheet-w', PWmm + 'mm'); document.documentElement.style.setProperty('--sheet-h', PHmm + 'mm');
+  $('pagesize').textContent = `@page { size: ${state.paper} landscape; margin: 0; }`;
+  // Reading order preview: cover, 2·3, 4·5, 6·7, back
+  const spreads = [[1], [2, 3], [4, 5], [6, 7], [8]];
+  $('spreads').replaceChildren(...spreads.map(sp => {
+    const f = document.createElement('figure');
+    const box = document.createElement('div'); box.className = 'spread';
+    for (const n of sp) { const im = new Image(); im.src = pageCanvases[n].toDataURL('image/jpeg', .85); im.alt = n === 1 ? 'Front cover' : n === 8 ? 'Back cover' : `Page ${n}`; box.append(im); }
+    const cap = document.createElement('div'); cap.className = 'cap'; cap.textContent = sp.length === 1 ? (sp[0] === 1 ? 'front' : 'back') : `${sp[0]} · ${sp[1]}`;
+    f.append(box, cap); return f;
+  }));
+  history.replaceState(null, '', '#' + new URLSearchParams({ p: state.chosen.map(it => all.indexOf(it)).join(','), s: state.seed, paper: state.paper }));
+}
+
+/* ---------- Picking posts ---------- */
+function renderPick() {
+  $('pick').replaceChildren(...all.map((it, i) => {
+    const li = document.createElement('li'), l = document.createElement('label'), cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = state.chosen.includes(it);
+    cb.onchange = () => {
+      if (cb.checked) { if (state.chosen.length >= 6) state.chosen.shift(); state.chosen.push(it); }
+      else state.chosen = state.chosen.filter(x => x !== it);
+      if (state.chosen.length < 6) $('status').textContent = `Pick ${6 - state.chosen.length} more (six posts fill pages 2–7).`;
+      else { $('status').textContent = ''; build(); }
+      renderPick();
+    };
+    const t = document.createElement('span'); const b = document.createElement('b'); b.textContent = `@${it.handle}`;
+    t.append(b, document.createTextNode(clean(it.text).slice(0, 90)));
+    l.append(cb, t); li.append(l); return li;
+  }));
+  $('pickcount').textContent = `${state.chosen.length} of 6`;
+}
+function shuffle() {
+  // Prefer posts with something to say: the longest texts, shuffled
+  const pool = [...all].sort((a, b) => clean(b.text).length - clean(a.text).length).slice(0, 24);
+  for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+  state.chosen = pool.slice(0, 6);
+}
+
+/* ---------- Controls ---------- */
+Object.keys(INKS).forEach(k => $('ink').add(new Option(k[0].toUpperCase() + k.slice(1), k)));
+$('ink').value = 'signal';
+for (const id of ['title', 'issue']) $(id).oninput = () => state.chosen.length === 6 && build();
+for (const id of ['ink', 'guides']) $(id).onchange = build;
+$('paper').onchange = e => { state.paper = e.target.value; build(); };
+$('shuffle').onclick = () => { shuffle(); renderPick(); build(); };
+$('restyle').onclick = () => { state.seed++; build(); };
+$('print').onclick = () => print();
+$('png').onclick = () => sheetCanvas.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `zine-${$('issue').value || '01'}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+
+const h = new URLSearchParams(location.hash.slice(1));
+state.chosen = (h.get('p') || '').split(',').map(Number).filter(i => all[i]).slice(0, 6).map(i => all[i]);
+if (state.chosen.length < 6) shuffle();
+if (+h.get('s')) state.seed = +h.get('s');
+if (PAPERS[h.get('paper')]) { state.paper = h.get('paper'); $('paper').value = state.paper; }
+renderPick();
+Promise.race([Promise.all(['100px Anton', '100px "Archivo Black"', '20px "Space Mono"'].map(f => document.fonts.load(f))), new Promise(r => setTimeout(r, 3000))]).finally(build);
+</script>
+</body>
+</html>
