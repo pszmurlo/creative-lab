@@ -67,6 +67,14 @@
   dialog button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: inherit; background: none; border: 2px solid currentColor; padding: 10px 12px; min-block-size: 44px; cursor: pointer; }
   dialog .note { color: #8d8a83; font-size: 12px; }
   body.eink dialog .note { color: #000; }
+  dialog .cityform { display: grid; gap: 6px; margin-bottom: 12px; }
+  dialog .cityform label { margin-bottom: 0; }
+  dialog .cityform .row { margin-bottom: 0; }
+  dialog input[aria-invalid="true"] { border-color: #ff8270; }
+  body.eink dialog input[aria-invalid="true"] { border-color: #000; border-style: dashed; }
+  dialog .citystatus { min-height: 1.4em; margin: 0; color: #a8a49c; font-size: 12px; }
+  dialog .citystatus.err { color: #ff8270; font-weight: 700; }
+  body.eink dialog .citystatus { color: #000; }
   dialog a { color: inherit; }
   html { -webkit-tap-highlight-color: transparent; }
   button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
@@ -94,7 +102,14 @@
   <label class="inline"><input type="checkbox" data-p="weather" checked> Weather</label>
   <label class="inline"><input type="checkbox" data-p="shared" checked> Shared hour</label>
   <label class="inline"><input type="checkbox" data-p="habits" checked> Habits</label>
-  <form id="cityform" class="row"><input type="search" id="city" placeholder="Weather city" aria-label="Weather city" style="flex:1"><button type="submit">Set</button></form>
+  <form id="cityform" class="cityform" novalidate>
+    <label for="city">Weather city</label>
+    <div class="row">
+      <input type="search" id="city" name="city" placeholder="City" autocomplete="off" aria-invalid="false" style="flex:1">
+      <button type="submit" id="cityset">Set</button>
+    </div>
+    <p class="citystatus" id="citystatus" role="status" aria-live="polite"></p>
+  </form>
   <div class="row"><button type="button" id="fs">Full screen</button><button type="button" id="close">Close</button></div>
   <p class="note">Install it: Android Chrome menu → Add to home screen; iPhone/iPad Share → Add to Home Screen. Keep the device charging; on Android also turn on Developer options → Stay awake. On an iPad, Guided Access keeps it locked to this page. Kindle and other e-readers: open it in the built-in browser and pick E-ink.</p>
   <p class="note">Habits come from <a href="../tap/">Tap Log</a>, friends from <a href="../shared-hour/">Shared Hour</a>, the city from <a href="../morning-slip/">Morning Slip</a>, all stored in this browser. Tap a habit to log it.</p>
@@ -206,14 +221,52 @@ $('mode').onchange = e => { cfg.mode = e.target.value; save(); applyCfg(); shift
 $('nfrom').onchange = e => { cfg.nightFrom = +e.target.value; save(); tickClock(); };
 $('nto').onchange = e => { cfg.nightTo = +e.target.value; save(); tickClock(); };
 $('wake').onchange = e => { cfg.wake = e.target.checked; save(); if (cfg.wake) wake(); else lock?.release(); };
-$('gear').onclick = () => { $('city').value = store.get('morning-slip', {}).place?.name || ''; $('settings').showModal(); };
+function setCityStatus(msg, err = false) {
+  const el = $('citystatus'), input = $('city');
+  el.textContent = msg;
+  el.className = 'citystatus' + (err ? ' err' : '');
+  input.setAttribute('aria-invalid', err ? 'true' : 'false');
+  if (err && msg) input.setAttribute('aria-describedby', 'citystatus');
+  else input.removeAttribute('aria-describedby');
+}
+$('gear').onclick = () => { $('city').value = store.get('morning-slip', {}).place?.name || ''; setCityStatus(''); $('settings').showModal(); };
 $('close').onclick = () => $('settings').close();
 $('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+$('city').addEventListener('input', () => {
+  if ($('city').getAttribute('aria-invalid') === 'true') setCityStatus('');
+});
+let cityLookupSeq = 0;
 $('cityform').addEventListener('submit', async e => {
-  e.preventDefault(); const q = $('city').value.trim(); if (!q) return;
-  const h = (await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`)).json()).results?.[0];
-  if (!h) { $('city').setCustomValidity('City not found'); $('city').reportValidity(); return; }
-  $('city').setCustomValidity(''); store.set('morning-slip', { ...store.get('morning-slip', {}), place: { name: h.name, lat: h.latitude, lon: h.longitude } }); tickWeather();
+  e.preventDefault();
+  const q = $('city').value.trim();
+  if (!q) { setCityStatus('Enter a city name to look up.', true); $('city').focus(); return; }
+  const seq = ++cityLookupSeq;
+  const btn = $('cityset');
+  btn.disabled = true;
+  setCityStatus(`Looking up ${q}…`);
+  try {
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j = await res.json();
+    if (seq !== cityLookupSeq) return;
+    const h = j.results?.[0];
+    if (!h) {
+      setCityStatus(`City “${q}” not found. Check the spelling and try again.`, true);
+      $('city').focus();
+      return;
+    }
+    store.set('morning-slip', { ...store.get('morning-slip', {}), place: { name: h.name, lat: h.latitude, lon: h.longitude } });
+    setCityStatus(`Weather city set to ${h.name}${h.country ? ', ' + h.country : ''}.`);
+    tickWeather();
+  } catch {
+    if (seq !== cityLookupSeq) return;
+    const prev = store.get('morning-slip', {}).place?.name;
+    const kept = prev ? ` Keeping ${prev}.` : '';
+    setCityStatus(`Couldn't reach the city lookup service.${kept} Check your connection and try again.`, true);
+    $('city').focus();
+  } finally {
+    if (seq === cityLookupSeq) btn.disabled = false;
+  }
 });
 if (!('closedBy' in HTMLDialogElement.prototype)) $('settings').addEventListener('click', e => { if (e.target !== $('settings')) return; const r = e.target.getBoundingClientRect(); if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) e.target.close(); });
 // Data changed in another tab (Tap Log, Shared Hour)
