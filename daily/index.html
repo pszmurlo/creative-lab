@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daily Page</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: a single column page per day. Header (date, nav, day strip), carry-over banner, notes, to-dos, footer tools. */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed; --move: #2f6df6;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--mono); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px max(16px, 4vw) 72px; }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  header { border-bottom: 3px solid var(--line); padding-bottom: 14px; margin: 14px 0 18px; }
+  .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+  h1 { font: 400 clamp(52px, 13vw, 112px)/.85 var(--display); text-transform: uppercase; margin: 0; }
+  h1 span { color: var(--acc); }
+  .date { font: 700 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-top: 8px; }
+  .nav { display: flex; gap: 6px; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; min-inline-size: 24px; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
+  button.primary { background: var(--fg); color: var(--bg); }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .strip { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 3px; margin-top: 14px; }
+  .strip button { min-inline-size: 0; padding: 4px 0 6px; border-width: 1px; font-size: 10px; letter-spacing: 0; display: grid; justify-items: center; gap: 2px; }
+  .strip button i { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+  .strip button.has i { background: var(--fg); }
+  .strip button[aria-current=date] { background: var(--fg); color: var(--bg); }
+  .strip button[aria-current=date].has i { background: var(--bg); }
+  .strip button.today { border-color: var(--acc); }
+
+  .banner { border: 2px solid var(--move); padding: 10px 12px; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .banner p { margin: 0; flex: 1; min-width: 200px; }
+  [hidden] { display: none !important; } /* .banner's display: flex would otherwise beat the hidden attribute */
+  h2 { font: 700 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; margin: 22px 0 8px; display: flex; flex-wrap: wrap; gap: 2px 12px; justify-content: space-between; }
+  h2 span { color: var(--dim); font-weight: 400; }
+  textarea#notes { field-sizing: content; height: auto; width: 100%; box-sizing: border-box; min-block-size: 10lh; max-block-size: none;
+                   font: 16px/1.7 var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 12px 14px; resize: vertical; border-radius: 0; }
+  @supports not (field-sizing: content) { textarea#notes { min-height: 18em; } }
+
+  /* To-dos: each row is a horizontal snap scroller (content | "tomorrow" spacer); swiping left moves the task on */
+  ul.tasks { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .task { position: relative; contain: content; border-bottom: 1px solid color-mix(in srgb, var(--line) 30%, transparent); }
+  .task .track { display: grid; grid-template-columns: 100% 100%; overflow: scroll clip; overscroll-behavior-x: none; scrollbar-width: none; scroll-snap-type: x mandatory; }
+  .task .track::-webkit-scrollbar { display: none; }
+  .task .track::after { content: ''; scroll-snap-align: start; background: var(--move); }
+  .task .content { position: relative; z-index: 2; scroll-snap-align: start; background: var(--bg); display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 2px; }
+  .task::after { content: 'Tomorrow →'; position: absolute; z-index: 1; right: 14px; top: 50%; translate: 0 -50%; color: #fff; font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; transition: scale .2s ease; }
+  .task.activating::after { scale: 1.15; }
+  @media (prefers-reduced-motion: reduce) { .task.activating::after { scale: 1; } }
+  @media (forced-colors: active) { .task::after { forced-color-adjust: none; color: CanvasText; } }
+  .task input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--acc); margin: 0; }
+  .task label { overflow-wrap: anywhere; cursor: pointer; }
+  .task.done label { text-decoration: line-through; color: var(--dim); }
+  .task small { display: block; color: var(--dim); font-size: 11px; }
+  .task .acts { display: flex; gap: 4px; }
+  .task .acts button { padding: 2px 8px; font-size: 14px; border-width: 1px; }
+  form.add { display: flex; gap: 8px; margin-top: 10px; }
+  form.add input { flex: 1; min-width: 0; font: 15px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; }
+  .empty { color: var(--dim); font-size: 13px; padding: 8px 0; }
+  .foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .foot .stats { color: var(--dim); font-size: 12px; margin-right: auto; }
+  .foot label.btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
+  .foot label.btn:focus-within { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  /* Touch baseline (same as the other pages) */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a, label.btn { touch-action: manipulation; }
+  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  @media (pointer: coarse) { input, textarea { font-size: 16px !important; } button, label.btn { min-block-size: 44px; } .task .acts button { min-inline-size: 44px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="../">← Creative Lab</a>
+  <header>
+    <div class="top">
+      <div><h1 id="day"></h1><div class="date" id="date"></div></div>
+      <div class="nav">
+        <button type="button" id="prev" aria-label="Previous day">←</button>
+        <button type="button" id="today">Today</button>
+        <button type="button" id="next" aria-label="Next day">→</button>
+      </div>
+    </div>
+    <nav class="strip" id="strip" aria-label="Last two weeks"></nav>
+  </header>
+
+  <div class="banner" id="banner" hidden><p id="bannerText"></p><button type="button" class="primary" id="bring">Bring them</button><button type="button" id="leave">Leave them</button></div>
+
+  <h2><label for="notes">Page</label><span id="words"></span></h2>
+  <textarea id="notes" placeholder="Open it and type."></textarea>
+
+  <h2 id="todo-h">To do <span>swipe left or press → to move a task to tomorrow</span></h2>
+  <ul class="tasks" id="tasks" role="list" aria-labelledby="todo-h"></ul>
+  <form class="add" id="add"><label class="sr" for="newtask">New task</label><input id="newtask" placeholder="Add a task" autocomplete="off" maxlength="200"><button type="submit">Add</button></form>
+  <p role="status" class="sr" id="status"></p>
+
+  <div class="foot">
+    <span class="stats" id="stats"></span>
+    <button type="button" id="md">Export Markdown</button>
+    <button type="button" id="json">Export JSON</button>
+    <label class="btn">Import<input type="file" id="import" accept="application/json" class="sr"></label>
+  </div>
+  <p class="note" style="color:var(--dim);font-size:12px">Everything stays in this browser. Export now and then: clearing site data deletes it.</p>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, '0');
+const key = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const parse = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const shift = (k, n) => { const d = parse(k); d.setDate(d.getDate() + n); return key(d); };
+const lang = navigator.language || 'en-GB';
+
+/* ---------- Storage ---------- */
+let db; try { db = JSON.parse(localStorage.getItem('daily-page')) || {}; } catch { db = {}; }
+db.days ||= {}; db.handled ||= {};
+let asked = false;
+function save() {
+  try { localStorage.setItem('daily-page', JSON.stringify(db)); } catch { say('Could not save: storage is full or blocked.'); }
+  if (!asked && navigator.storage?.persist) { asked = true; navigator.storage.persist().catch(() => {}); } // ask the browser not to evict the journal
+}
+const dayOf = k => db.days[k] ||= { notes: '', tasks: [] };
+const hasContent = k => { const d = db.days[k]; return !!d && (d.notes.trim() || d.tasks.length); };
+const say = t => { $('status').textContent = ''; requestAnimationFrame(() => $('status').textContent = t); };
+
+/* ---------- Page ---------- */
+let current = key(new Date());
+function render() {
+  const d = parse(current), today = key(new Date());
+  $('day').innerHTML = `${new Intl.DateTimeFormat(lang, { weekday: 'long' }).format(d)}<span>.</span>`;
+  $('date').textContent = (current === today ? 'Today · ' : current === shift(today, 1) ? 'Tomorrow · ' : current === shift(today, -1) ? 'Yesterday · ' : '')
+    + new Intl.DateTimeFormat(lang, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+  document.title = `${$('date').textContent} · Daily Page`;
+  const page = db.days[current] || { notes: '', tasks: [] };
+  if (document.activeElement !== $('notes')) $('notes').value = page.notes;
+  words();
+  // Two-week strip ending today (or the page you're on, if later)
+  const end = current > today ? current : today;
+  $('strip').replaceChildren(...Array.from({ length: 14 }, (_, i) => {
+    const k = shift(end, i - 13), b = document.createElement('button'), dd = parse(k);
+    b.type = 'button'; b.className = (hasContent(k) ? 'has' : '') + (k === today ? ' today' : '');
+    b.innerHTML = `<span>${new Intl.DateTimeFormat(lang, { weekday: 'narrow' }).format(dd)}</span><span>${dd.getDate()}</span><i></i>`;
+    b.setAttribute('aria-label', `${new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(dd)}${hasContent(k) ? ', written' : ''}`);
+    if (k === current) b.setAttribute('aria-current', 'date');
+    b.onclick = () => go(k); return b;
+  }));
+  renderTasks();
+  banner();
+  stats();
+}
+function go(k) { current = k; history.replaceState(null, '', k === key(new Date()) ? location.pathname : `#${k}`); render(); }
+function words() { const n = ($('notes').value.match(/\S+/g) || []).length; $('words').textContent = n ? `${n} word${n === 1 ? '' : 's'}` : ''; }
+function stats() {
+  const ks = Object.keys(db.days).filter(hasContent);
+  let streak = 0, k = key(new Date()); if (!hasContent(k)) k = shift(k, -1);
+  while (hasContent(k)) { streak++; k = shift(k, -1); }
+  $('stats').textContent = `${ks.length} page${ks.length === 1 ? '' : 's'} written · ${streak}-day streak`;
+}
+
+/* ---------- Notes ---------- */
+let saveT;
+$('notes').addEventListener('input', () => {
+  dayOf(current).notes = $('notes').value; words();
+  clearTimeout(saveT); saveT = setTimeout(() => { save(); render(); }, 400);
+});
+
+/* ---------- Tasks ---------- */
+const uid = () => Math.random().toString(36).slice(2, 10);
+function moveToTomorrow(id) {
+  const page = dayOf(current), i = page.tasks.findIndex(t => t.id === id); if (i < 0) return;
+  const [t] = page.tasks.splice(i, 1), to = shift(current, 1);
+  dayOf(to).tasks.push({ ...t, from: t.from || current });
+  save(); say(`“${t.text}” moved to tomorrow.`);
+}
+let observers = [];
+function renderTasks() {
+  // Rows are rebuilt on every render: drop the old swipe observers first, or a removed row reads as "swiped away"
+  observers.forEach(o => o.disconnect()); observers = [];
+  const page = db.days[current] || { tasks: [] }, list = $('tasks');
+  if (!page.tasks.length) { list.innerHTML = '<li class="empty">Nothing yet.</li>'; return; }
+  list.replaceChildren(...page.tasks.map(t => {
+    const li = document.createElement('li'); li.className = 'task' + (t.done ? ' done' : ''); li.dataset.id = t.id;
+    const fromTxt = t.from ? `<small>from ${new Intl.DateTimeFormat(lang, { weekday: 'short', day: 'numeric', month: 'short' }).format(parse(t.from))}</small>` : '';
+    li.innerHTML = `<div class="track"><div class="content"><input type="checkbox" id="t-${t.id}"${t.done ? ' checked' : ''}><label for="t-${t.id}"></label><span class="acts"><button type="button" class="mv">→<span class="sr"> Move to tomorrow: </span></button><button type="button" class="rm">×<span class="sr"> Delete: </span></button></span></div></div>`;
+    li.querySelector('label').textContent = t.text; if (fromTxt) li.querySelector('label').insertAdjacentHTML('beforeend', fromTxt);
+    li.querySelectorAll('.acts .sr').forEach(s => s.append(t.text));
+    li.querySelector('input').onchange = e => { t.done = e.target.checked; li.classList.toggle('done', t.done); save(); render(); };
+    li.querySelector('.mv').onclick = () => dismiss(li, () => moveToTomorrow(t.id));
+    li.querySelector('.rm').onclick = () => { if (confirm(`Delete “${t.text}”?`)) dismiss(li, () => { page.tasks = page.tasks.filter(x => x.id !== t.id); db.days[current] = page; save(); say(`“${t.text}” deleted.`); }); };
+    if (!t.done) swipeable(li, () => moveToTomorrow(t.id)); // finished tasks stay put
+    return li;
+  }));
+}
+// Swipe: the track scrolls natively; an IntersectionObserver on the content commits once it's mostly off-screen
+function swipeable(li, onCommit) {
+  const track = li.querySelector('.track'), content = li.querySelector('.content');
+  const io = new IntersectionObserver(es => {
+    const e = es.at(-1), r = e.intersectionRatio;
+    if (!li.isConnected || !e.rootBounds?.width) return; // only real swipes on rows that are still on the page
+    if (r < .2) { io.disconnect(); dismiss(li, onCommit); return; }
+    li.classList.toggle('activating', r < .8);
+  }, { root: track, threshold: [.2, .8] });
+  observers.push(io);
+  requestAnimationFrame(() => li.isConnected && io.observe(content));
+}
+async function dismiss(li, after) {
+  // Keep keyboard focus in the list: move it to the next row's first control before this row goes
+  if (li.contains(document.activeElement)) { const n = li.nextElementSibling || li.previousElementSibling; (n?.querySelector('button, input') || $('newtask')).focus(); }
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const h = li.getBoundingClientRect().height;
+  await li.animate([{ height: `${h}px`, opacity: 1 }, { height: '0px', opacity: 0 }], { duration: reduce ? 120 : 260, easing: 'ease', fill: 'forwards' }).finished.catch(() => {});
+  after(); render();
+}
+$('add').addEventListener('submit', e => {
+  e.preventDefault(); const text = $('newtask').value.trim(); if (!text) return;
+  dayOf(current).tasks.push({ id: uid(), text, done: false }); save(); $('newtask').value = ''; render(); say(`Added “${text}”.`);
+});
+
+/* ---------- Carry-over: unfinished tasks from your last page, offered on today ---------- */
+function pending() {
+  const today = key(new Date());
+  if (current !== today) return null;
+  const past = Object.keys(db.days).filter(k => k < today && !db.handled[k] && db.days[k].tasks.some(t => !t.done)).sort();
+  if (!past.length) return null;
+  const k = past.at(-1); return { k, tasks: db.days[k].tasks.filter(t => !t.done) };
+}
+function banner() {
+  const p = pending(); $('banner').hidden = !p; if (!p) return;
+  const when = new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'short' }).format(parse(p.k));
+  $('bannerText').textContent = `${p.tasks.length} unfinished from ${when}. Bring ${p.tasks.length === 1 ? 'it' : 'them'} here?`;
+  $('bring').onclick = () => {
+    const src = db.days[p.k]; src.tasks = src.tasks.filter(t => t.done);
+    dayOf(current).tasks.push(...p.tasks.map(t => ({ ...t, from: t.from || p.k })));
+    db.handled[p.k] = true; save(); render(); say(`Brought ${p.tasks.length} task${p.tasks.length === 1 ? '' : 's'} to today.`);
+  };
+  $('leave').onclick = () => { db.handled[p.k] = true; save(); render(); };
+}
+
+/* ---------- Navigation and data ---------- */
+$('prev').onclick = () => go(shift(current, -1));
+$('next').onclick = () => go(shift(current, 1));
+$('today').onclick = () => go(key(new Date()));
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'ArrowLeft') go(shift(current, -1));
+  if (e.key === 'ArrowRight') go(shift(current, 1));
+  if (e.key === 't' || e.key === 'T') go(key(new Date()));
+});
+const download = (name, text, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); };
+$('json').onclick = () => download(`daily-page-${key(new Date())}.json`, JSON.stringify(db, null, 1), 'application/json');
+$('md').onclick = () => {
+  const ks = Object.keys(db.days).filter(hasContent).sort();
+  const md = ks.map(k => { const d = db.days[k]; return [`## ${new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(parse(k))}`, d.notes.trim(), d.tasks.map(t => `- [${t.done ? 'x' : ' '}] ${t.text}`).join('\n')].filter(Boolean).join('\n\n'); }).join('\n\n');
+  download(`daily-page-${key(new Date())}.md`, `# Daily Page\n\n${md}\n`, 'text/markdown');
+};
+$('import').onchange = async e => {
+  try {
+    const d = JSON.parse(await e.target.files[0].text()); if (!d.days) throw new Error('not a Daily Page export');
+    for (const [k, v] of Object.entries(d.days)) { const cur = dayOf(k); if (!cur.notes.trim()) cur.notes = v.notes || ''; else if (v.notes && v.notes !== cur.notes) cur.notes += '\n\n' + v.notes; const ids = new Set(cur.tasks.map(t => t.id)); cur.tasks.push(...(v.tasks || []).filter(t => !ids.has(t.id))); }
+    Object.assign(db.handled, d.handled || {}); save(); render(); say('Imported.');
+  } catch (err) { alert(`Import failed: ${err.message}`); }
+  e.target.value = '';
+};
+// Another tab wrote: reload the data (but never under the cursor)
+addEventListener('storage', e => { if (e.key !== 'daily-page') return; try { db = JSON.parse(e.newValue) || db; db.days ||= {}; db.handled ||= {}; } catch {} render(); });
+
+const h = location.hash.slice(1); if (/^\d{4}-\d{2}-\d{2}$/.test(h)) current = h;
+render();
+// A new day starts while the page is open
+let lastToday = key(new Date());
+setInterval(() => { const t = key(new Date()); if (t !== lastToday) { if (current === lastToday) current = t; lastToday = t; render(); } }, 60000);
+</script>
+</body>
+</html>
