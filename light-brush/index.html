@@ -12,13 +12,13 @@
   @media (prefers-color-scheme: dark) {
     :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
   }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); font-size-adjust: from-font; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 32px;
           grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
   @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
   @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
-  h1 { font: 400 clamp(52px, 8vw, 104px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 { font: 400 clamp(52px, 8vw, 104px)/.85 var(--display); font-size-adjust: cap-height from-font; text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 22px; }
   fieldset { border: 0; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }
@@ -92,6 +92,11 @@ const $ = id => document.getElementById(id);
 const state = { source: 'text', text: 'HELLO', color: 'white', dur: 6, band: 40, bright: 100, dir: 'ltr', image: null, seed: 1 };
 const H0 = 360; // source height in pixels; the screen stretches it to full height
 
+const F = { display: '"Anton", Impact, "Arial Narrow", sans-serif', mono: '"Space Mono", ui-monospace, Menlo, monospace' };
+const fontsReady = document.fonts?.load
+  ? Promise.race([Promise.allSettled([document.fonts.load('400 80px Anton')]), new Promise(r => setTimeout(r, 1500))])
+  : Promise.resolve();
+
 /* ---------- Sources: each returns a canvas, light on black ---------- */
 function paintColor(ctx, w) {
   if (state.color === 'red') return '#ff2a12';
@@ -103,9 +108,9 @@ function paintColor(ctx, w) {
 const SOURCES = {
   text: { label: 'Text', make() {
     const c = document.createElement('canvas'), x = c.getContext('2d'), size = H0 * .78, t = (state.text || ' ').toUpperCase();
-    x.font = `400 ${size}px Anton`; const w = Math.ceil(x.measureText(t).width + H0 * .3);
+    x.font = `400 ${size}px ${F.display}`; const w = Math.ceil(x.measureText(t).width + H0 * .3);
     c.width = w; c.height = H0; x.fillStyle = '#000'; x.fillRect(0, 0, w, H0);
-    x.font = `400 ${size}px Anton`; x.textBaseline = 'middle'; x.fillStyle = paintColor(x, w); x.fillText(t, H0 * .15, H0 * .52);
+    x.font = `400 ${size}px ${F.display}`; x.textBaseline = 'middle'; x.fillStyle = paintColor(x, w); x.fillText(t, H0 * .15, H0 * .52);
     return c;
   } },
   parking: { label: 'Parking', make() {
@@ -140,7 +145,7 @@ const SOURCES = {
     return c;
   } },
   image: { label: 'Image', make() {
-    if (!state.image) { const c = document.createElement('canvas'); c.width = H0; c.height = H0; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, H0, H0); x.fillStyle = '#555'; x.font = '24px "Space Mono"'; x.textAlign = 'center'; x.fillText('choose an image', H0 / 2, H0 / 2); return c; }
+    if (!state.image) { const c = document.createElement('canvas'); c.width = H0; c.height = H0; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, H0, H0); x.fillStyle = '#555'; x.font = `24px ${F.mono}`; x.textAlign = 'center'; x.fillText('choose an image', H0 / 2, H0 / 2); return c; }
     const im = state.image, w = Math.round(im.width * H0 / im.height), c = document.createElement('canvas'); c.width = w; c.height = H0;
     c.getContext('2d').drawImage(im, 0, 0, w, H0); return c;
   } },
@@ -149,7 +154,7 @@ const SOURCES = {
 /* ---------- Preview and facts ---------- */
 let src = null;
 async function update() {
-  await document.fonts.load(`400 80px Anton`);
+  await fontsReady;
   src = SOURCES[state.source].make();
   const p = $('prev'); p.width = src.width; p.height = src.height;
   const x = p.getContext('2d'); x.globalAlpha = state.bright / 100; x.drawImage(src, 0, 0); x.globalAlpha = 1;
