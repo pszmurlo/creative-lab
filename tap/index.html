@@ -71,6 +71,7 @@
   dialog h3 { margin: 0 0 12px; font: 400 34px/1 var(--display); text-transform: uppercase; }
   .qr { display: grid; place-items: center; background: #fff; padding: 12px; width: 220px; margin: 0 auto 12px; }
   .qr img, .qr svg { width: 196px; height: 196px; display: block; }
+  .qr-fallback { border: 2px dashed var(--line); padding: 10px 12px; margin: 0 0 12px; font-size: 12px; }
   code.url { display: block; padding: 10px; background: var(--field); border: 1px solid var(--line); word-break: break-all; font-size: 12px; }
   .copy { position: relative; display: inline-flex; align-items: center; gap: 8px; }
   .tip { font-size: 12px; color: var(--acc); opacity: 0; transition: opacity .15s; }
@@ -153,6 +154,7 @@
 <dialog id="dlg" closedby="any" aria-labelledby="dlg-title">
   <h3 id="dlg-title"></h3>
   <div class="qr" id="qr"></div>
+  <p class="qr-fallback" id="qrnote" hidden></p>
   <code class="url" id="url"></code>
   <p class="note" id="fit"></p>
   <div class="dlg-acts">
@@ -290,9 +292,28 @@ function openSticker(slug) {
   $('url').textContent = url;
   const bytes = new TextEncoder().encode(url).length;
   $('fit').textContent = `${bytes} bytes. ${bytes <= 130 ? 'Fits any sticker (NTAG213 and up).' : bytes <= 480 ? 'Needs an NTAG215 or NTAG216 sticker.' : 'Too long for common stickers; use a shorter link.'}`;
-  const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
-  $('qr').innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
-  $('qr').firstElementChild.setAttribute('role', 'img'); $('qr').firstElementChild.setAttribute('aria-label', `QR code for the ${t.n} sticker`);
+  const qrEl = $('qr'), qrNote = $('qrnote');
+  let qrReady = false;
+  if (typeof qrcode === 'function') {
+    try {
+      const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+      qrEl.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+      qrEl.firstElementChild.setAttribute('role', 'img');
+      qrEl.firstElementChild.setAttribute('aria-label', `QR code for the ${t.n} sticker`);
+      qrReady = true;
+    } catch {}
+  }
+  qrEl.hidden = !qrReady;
+  if (!qrReady) {
+    qrEl.replaceChildren();
+    qrNote.textContent = typeof qrcode === 'function'
+      ? "QR code couldn't be generated for this link. You can still copy or write the sticker link below."
+      : "QR code unavailable because the QR library didn't load. You can still copy or write the sticker link below.";
+    qrNote.hidden = false;
+  } else {
+    qrNote.textContent = '';
+    qrNote.hidden = true;
+  }
   $('write').hidden = !('NDEFReader' in window);
   $('writemsg').textContent = '';
   $('write').onclick = async () => {
