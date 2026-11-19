@@ -9,15 +9,15 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
   /* Layout: tap screen (full-height confirmation) or dashboard (header, tag cards with heatmaps, recent taps, data tools) */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed; --heat: 17 17 17;
+  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed; --heat: 17 17 17;
           --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; --heat: 242 240 235; color-scheme: dark; }
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; --heat: 242 240 235; color-scheme: dark; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 32px max(16px, 4vw, env(safe-area-inset-right)) 72px max(16px, 4vw, env(safe-area-inset-left)); }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
   header { border-bottom: 3px solid var(--line); padding-bottom: 18px; margin: 14px 0 24px; }
   h1 { font: 400 clamp(56px, 11vw, 132px)/.85 var(--display); text-transform: uppercase; margin: 0 0 12px; }
   h1 span { color: var(--acc); }
@@ -27,7 +27,7 @@
            border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; text-decoration: none; display: inline-block; }
   @media (hover: hover) and (pointer: fine) { button:hover, .btn:hover { background: var(--fg); color: var(--bg); } }
   button.primary { background: var(--fg); color: var(--bg); }
-  @media (hover: hover) and (pointer: fine) { button.primary:hover { background: var(--acc); border-color: var(--acc); } }
+  @media (hover: hover) and (pointer: fine) { button.primary:hover { background: #c2210b; border-color: #c2210b; color: #fff; } }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   input[type=text], input[type=url] { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; min-width: 0; }
   label { display: grid; gap: 4px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
@@ -74,7 +74,7 @@
   .qr-fallback { border: 2px dashed var(--line); padding: 10px 12px; margin: 0 0 12px; font-size: 12px; }
   code.url { display: block; padding: 10px; background: var(--field); border: 1px solid var(--line); word-break: break-all; font-size: 12px; }
   .copy { position: relative; display: inline-flex; align-items: center; gap: 8px; }
-  .tip { font-size: 12px; color: var(--acc); opacity: 0; transition: opacity .15s; }
+  .tip { font-size: 12px; color: var(--acc-text); opacity: 0; transition: opacity .15s; }
   .tip.show { opacity: 1; }
   .dlg-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
   .dlg-acts .close { margin-left: auto; }

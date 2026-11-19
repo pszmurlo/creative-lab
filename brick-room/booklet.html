@@ -7,9 +7,9 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
   /* Layout: a toolbar, then A4 pages (cover, inventory, a page per bag, a page per step). Printing drops the toolbar. */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed;
           --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; } }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; color-scheme: dark; } }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
   .bar { position: sticky; top: 0; z-index: 2; background: var(--bg); border-bottom: 3px solid var(--line); padding: 12px max(16px, 3vw);
          display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
@@ -18,8 +18,8 @@
   select { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 6px 8px; border-radius: 0; }
   label.inline { display: flex; gap: 6px; align-items: center; font-size: 12px; }
   button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
-  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } .bar a.back:hover { color: var(--acc); } }
-  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } .bar a.back:hover { color: var(--acc-text); } }
+  button.primary { background: #c2210b; border-color: #c2210b; color: #fff; }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   .status { font-size: 12px; color: var(--dim); }
   .pages { display: grid; gap: 24px; justify-content: center; padding: 24px 12px 64px; overflow-x: auto; }
