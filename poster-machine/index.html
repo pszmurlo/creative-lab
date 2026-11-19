@@ -54,7 +54,7 @@
   @media (hover: hover) and (pointer: fine) { .wall figure:hover canvas { transform: translateY(-3px) rotate(-.4deg); } }
   .wall figcaption { margin-top: 6px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: min(1100px, 96vw); width: 100%; overscroll-behavior: contain; }
-  dialog::backdrop { background: rgba(10,10,10,.75); }
+  dialog::backdrop { background: rgba(10,10,10,.75); overflow: hidden; overscroll-behavior: contain; }
   /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
   dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
   dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
@@ -67,6 +67,7 @@
   .lb { display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
   .lb canvas { width: 100%; height: auto; display: block; max-height: 86svh; object-fit: contain; background: #000; }
   .lb aside { padding: 20px; display: flex; flex-direction: column; gap: 10px; border-left: 3px solid var(--line); }
+  .lb aside h2 { margin: 0 0 6px; font: inherit; color: var(--dim); }
   .lb aside p { margin: 0 0 6px; color: var(--dim); }
   .lb aside a { color: var(--fg); }
   @media (max-width: 720px) { .lb { grid-template-columns: 1fr; } .lb aside { border-left: 0; border-top: 3px solid var(--line); } }
@@ -124,17 +125,17 @@
   <div class="wall" id="wall"></div>
 </main>
 
-<dialog id="lightbox">
+<dialog id="lightbox" aria-labelledby="lbMeta">
   <div class="lb">
     <canvas id="big" width="1000" height="1414"></canvas>
     <aside>
-      <p id="lbMeta"></p>
-      <button id="lbLayout" title="Next layout (L)">Next layout</button>
-      <button id="lbInk" title="Next ink (P)">Next ink</button>
-      <button id="lbReroll" title="Reroll (R)">Reroll</button>
-      <button class="primary" id="lbSave" title="Save PNG (S)">Save PNG</button>
+      <h2 id="lbMeta"></h2>
+      <button type="button" id="lbLayout" title="Next layout (L)">Next layout</button>
+      <button type="button" id="lbInk" title="Next ink (P)">Next ink</button>
+      <button type="button" id="lbReroll" title="Reroll (R)">Reroll</button>
+      <button type="button" class="primary" id="lbSave" title="Save PNG (S)">Save PNG</button>
       <p><a id="lbLink" href="#" target="_blank" rel="noopener">Open the post on X</a></p>
-      <button id="lbClose">Close</button>
+      <button type="button" id="lbClose">Close</button>
     </aside>
   </div>
 </dialog>
