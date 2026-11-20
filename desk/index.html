@@ -14,14 +14,15 @@
 <style>
   /* Layout: full-screen kiosk. Clock on one side, weather / shared hour / streaks on the other (stacked in portrait).
      Ambient = dark; e-ink = black on white with no motion; night = only a faint clock. */
-  :root { --bg: #000; --fg: #f2f0eb; --dim: #8d8a83; --line: #3a3936; --acc: #ff3b1f;
+  :root { --bg: #000; --fg: #f2f0eb; --dim: #8d8a83; --line: #63615c; /* 3.3:1 on black, so habit borders read (was 1.82:1) */ --acc: #ff3b1f;
           --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: dark; }
   body.eink { --bg: #fff; --fg: #000; --dim: #000; --line: #000; --acc: #000; color-scheme: light; }
   html, body { height: 100%; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.4 var(--mono); overflow: hidden; }
   main { box-sizing: border-box; height: 100dvh; padding: max(4vmin, env(safe-area-inset-top)) max(5vmin, env(safe-area-inset-right)) max(4vmin, env(safe-area-inset-bottom)) max(5vmin, env(safe-area-inset-left));
          display: grid; grid-template-columns: 1.15fr 1fr; gap: 5vmin; align-items: center; transition: transform 2s ease; }
-  @media (orientation: portrait) { main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; align-items: start; } }
+  /* Portrait: clock over panels, the pair centred in the screen instead of hanging from the top */
+  @media (orientation: portrait) { main { grid-template-columns: 1fr; grid-template-rows: auto auto; align-items: start; align-content: safe center; } }
   body.eink main { transition: none; }
   .clock b { display: block; font: 400 min(30vw, 46vh)/.82 var(--display); letter-spacing: -.01em; }
   @media (orientation: portrait) { .clock b { font-size: min(36vw, 30vh); } }
@@ -53,9 +54,11 @@
   body.night.eink .side { opacity: 0; }
 
   .gear { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); width: 44px; height: 44px;
-          border: 0; background: none; color: var(--dim); opacity: .35; font-size: 22px; cursor: pointer; }
-  .gear:focus-visible { opacity: 1; }
+          border: 0; background: none; color: var(--dim); opacity: .72; font-size: 22px; cursor: pointer; }
+  /* .72 keeps the dim gear at 3.5:1 on black (.35 was 1.6:1); any tap lights it fully for 4 s so it can be found on touch */
+  .gear:focus-visible, body.reveal .gear { opacity: 1; }
   @media (hover: hover) and (pointer: fine) { .gear:hover { opacity: 1; } } /* ungated, a tap left the gear lit on touch screens */
+  body.night:not(.reveal) .gear { opacity: .16; } /* night stays a faint clock; the waking tap reveals the gear too */
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
 
   dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); background: #151514; color: #f2f0eb; border: 2px solid #f2f0eb; padding: 20px; overscroll-behavior: contain; font-size: 14px; }
@@ -75,6 +78,7 @@
   }
   dialog h3 { margin: 0 0 14px; font: 400 32px/1 var(--display); text-transform: uppercase; }
   dialog label { display: grid; gap: 6px; margin-bottom: 12px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  dialog input[type=checkbox] { accent-color: var(--acc); width: 20px; height: 20px; margin: 0; }
   dialog .inline { display: flex; align-items: center; gap: 8px; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 14px; }
   dialog select, dialog input[type=search] { font: 16px var(--mono); background: transparent; color: inherit; border: 2px solid currentColor; padding: 8px; border-radius: 0; }
   dialog .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
@@ -155,6 +159,9 @@ function tickClock() {
   $('date').textContent = new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(d);
   document.body.classList.toggle('night', isNight(d) && Date.now() > wokeUntil);
 }
+// Any tap shows the gear for 4 s (it sits at .72 otherwise). On e-ink this is one repaint each way
+let revealT;
+document.addEventListener('pointerdown', () => { document.body.classList.add('reveal'); clearTimeout(revealT); revealT = setTimeout(() => document.body.classList.remove('reveal'), 4000); }, true);
 document.addEventListener('pointerdown', e => { if (document.body.classList.contains('night') && !e.target.closest('dialog, .gear')) { wokeUntil = Date.now() + 30000; tickClock(); e.preventDefault(); } }, true);
 
 /* ---------- Weather (city from Morning Slip, or guessed from the time zone) ---------- */
@@ -166,7 +173,7 @@ async function place() {
   const slip = store.get('morning-slip', {});
   if (slip.place) return slip.place;
   const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' ');
-  const h = (await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(city)}`)).json()).results?.[0];
+  const h = (await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(city)}`, { signal: AbortSignal.timeout(8000) })).json()).results?.[0];
   if (!h) throw new Error('no city');
   const p = { name: h.name, lat: h.latitude, lon: h.longitude }; store.set('morning-slip', { ...slip, place: p }); return p;
 }
@@ -174,11 +181,12 @@ async function tickWeather() {
   if (!cfg.panels.weather) return;
   try {
     const p = await place();
-    const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`)).json();
-    $('w-place').textContent = p.name === 'Here' ? 'Weather' : p.name;
+    const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`, { signal: AbortSignal.timeout(8000) })).json();
+    $('w-place').textContent = `${p.name === 'Here' ? 'Weather' : p.name} · now`;
     $('w-now').textContent = `${Math.round(j.current.temperature_2m)}° ${sky(j.current.weather_code)}`;
-    $('w-sub').textContent = `${Math.round(j.daily.temperature_2m_min[0])}° / ${Math.round(j.daily.temperature_2m_max[0])}° · rain ${j.daily.precipitation_probability_max[0] ?? 0}%`;
-  } catch (e) { $('w-now').textContent = '—'; $('w-sub').textContent = 'Weather unavailable'; }
+    $('w-sub').textContent = `Today ${Math.round(j.daily.temperature_2m_min[0])}° / ${Math.round(j.daily.temperature_2m_max[0])}° · rain ${j.daily.precipitation_probability_max[0] ?? 0}%`;
+  // Every request gives up after 8 s, like Morning Slip, so a stalled network can't leave the panel waiting forever
+  } catch (e) { $('w-now').textContent = '—'; $('w-sub').textContent = e.name === 'TimeoutError' ? 'Weather unavailable (timed out)' : 'Weather unavailable'; }
 }
 
 /* ---------- Shared hour ---------- */
@@ -263,7 +271,7 @@ $('cityform').addEventListener('submit', async e => {
   btn.disabled = true;
   setCityStatus(`Looking up ${q}…`);
   try {
-    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`);
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const j = await res.json();
     if (seq !== cityLookupSeq) return;

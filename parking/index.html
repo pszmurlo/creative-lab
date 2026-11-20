@@ -7,34 +7,33 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Perfect Parking</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../lab.css">
 <style>
-  /* Layout: controls on the left, the plot (an SVG sheet of paper) on the right; stacks on narrow screens */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed;
-          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; color-scheme: dark; }
+  /* Layout: title and controls on the left, the plot (an SVG sheet of paper) on the right.
+     Narrow screens put the result first: title, then the sheet, then the controls (.stage-first, proposed for lab.css).
+     Printing shows only the sheet, at true size. */
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; }
+  .stage-first { --side: 330px; display: grid; gap: 0 32px; align-items: start;
+                 grid-template-columns: minmax(0, var(--side)) minmax(0, 1fr); grid-template-rows: auto 1fr;
+                 grid-template-areas: "intro stage" "controls stage"; }
+  .stage-first > .intro { grid-area: intro; }
+  .stage-first > .controls { grid-area: controls; }
+  .stage-first > .stagewrap { grid-area: stage; }
+  @media (max-width: 860px) {
+    .stage-first { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "intro" "stage" "controls"; }
+    .stage-first > .stagewrap { position: static; margin-bottom: 28px; }
   }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
-  .wrap { max-width: 1280px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; display: grid; gap: 32px;
-          grid-template-columns: minmax(0, 330px) minmax(0, 1fr); align-items: start; }
-  @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
-  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
+  /* Header shared with Parking Calendar: back link and the sibling page, then the title */
+  .crumbs { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 16px; }
   h1 { font: 400 clamp(52px, 7vw, 92px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 22px; }
   fieldset { border: 0; padding: 0; margin: 0 0 14px; display: grid; gap: 6px; }
   legend, label { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
   label { display: grid; gap: 6px; margin-bottom: 12px; }
+  label output { font-weight: 400; color: var(--dim); }
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
-  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
-           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
-  button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
-  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
-  button.primary { background: #c2210b; border-color: #c2210b; color: #fff; }
-  @media (hover: hover) and (pointer: fine) { button.primary:hover { background: var(--fg); border-color: var(--fg); color: var(--bg); } }
   input[type=range] { width: 100%; accent-color: var(--acc); }
-  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   .stats { color: var(--dim); font-size: 12px; margin-top: 12px; }
   .stats b { color: var(--fg); }
   .paper { background: #fbfaf6; box-shadow: 0 1px 0 var(--line), 0 18px 40px -20px rgb(0 0 0 / .45); border: 1px solid rgb(0 0 0 / .2); }
@@ -42,41 +41,41 @@
   .hint { color: var(--dim); font-size: 12px; margin-top: 10px; }
   .note { color: var(--dim); font-size: 12px; }
 
-  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a, .btn, summary { touch-action: manipulation; }
-  button, .btn, summary { -webkit-user-select: none; user-select: none; }
-  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active, .btn:active { transform: scale(.97); }
-  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
-  @media (pointer: coarse) {
-    input, select, textarea { font-size: 16px !important; }
-    button, .btn { min-block-size: 44px; }
+  @media print {
+    body { background: #fff; }
+    .wrap { padding: 0; max-width: none; display: block; }
+    .intro, .controls, .hint { display: none !important; }
+    .paper { border: 0; box-shadow: none; background: #fff; }
+    .paper svg { width: var(--pw); height: var(--ph); }
   }
 </style>
+<style id="pagesize">@page { size: 297mm 420mm; margin: 0; }</style>
 </head>
 <body>
-<main class="wrap">
-  <div>
-    <a class="back" href="../">← Creative Lab</a>
+<main class="wrap stage-first">
+  <header class="intro">
+    <nav class="crumbs" aria-label="Related pages"><a class="back" href="../">← Creative Lab</a><a class="back" href="../parking-calendar/">Calendar →</a></nav>
     <h1>Perfect<br>parking<span>.</span></h1>
     <p class="lede">Plotter drawings of parallel parking. Each car reverses in on full right lock, then full left lock, the two-arc move from the maths of perfect parking. Grey ghosts show the body, red lines trace its corners.</p>
+  </header>
 
+  <div class="stagewrap">
+    <div class="paper" id="sheet"></div>
+    <p class="hint" id="hint"></p>
+  </div>
+
+  <div class="controls">
     <fieldset><legend>Layout</legend><div class="seg" id="layout"></div></fieldset>
     <fieldset><legend>Paper</legend><div class="seg" id="paper"></div></fieldset>
-    <label>Ghosts <input type="range" id="ghosts" min="4" max="40" value="14"></label>
-    <label>Cars <input type="range" id="count" min="1" max="24" value="12"></label>
+    <label for="ghosts"><span>Ghosts <output id="ghostsv" for="ghosts"></output></span><input type="range" id="ghosts" min="4" max="40" value="14"></label>
+    <label for="count"><span>Cars <output id="countv" for="count"></output></span><input type="range" id="count" min="1" max="24" value="12"></label>
     <fieldset><legend>Pens</legend><div class="seg" id="pens"></div></fieldset>
     <div class="seg">
-      <button type="button" id="reroll">Reroll (R)</button>
+      <button type="button" id="reroll">Reroll<span class="kbd-hint"> (R)</span></button>
       <button type="button" class="primary" id="svg">Download SVG</button>
     </div>
     <p class="stats" id="stats"></p>
-    <p class="note">The SVG is sized in millimetres with one layer per pen, ready for Inkscape, AxiDraw or vpype. Inspired by Simon Blackburn's "The geometry of perfect parking"; the gaps shown here come from this simulation, not his formula.</p>
-  </div>
-  <div>
-    <div class="paper" id="sheet"></div>
-    <p class="hint" id="hint"></p>
+    <p class="note">The SVG is sized in millimetres with one layer per pen, ready for Inkscape, AxiDraw or vpype. Printing gives the sheet at true size. For twelve dated sheets, see the <a href="../parking-calendar/">Parking Calendar</a>. Inspired by Simon Blackburn's "The geometry of perfect parking"; the gaps shown here come from this simulation, not his formula.</p>
   </div>
 </main>
 
@@ -101,12 +100,16 @@ let last = '';
 function render() {
   for (const k of ['layout', 'paper', 'pens']) $(k).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v == state[k])));
   $('ghosts').value = state.ghosts; $('count').value = state.count;
+  $('ghostsv').textContent = state.ghosts; $('countv').textContent = state.count;
+  const [PW, PH] = PAPERS[state.paper]; // print at true size
+  $('pagesize').textContent = `@page { size: ${PW}mm ${PH}mm; margin: 0; }`;
+  document.documentElement.style.setProperty('--pw', PW + 'mm'); document.documentElement.style.setProperty('--ph', PH + 'mm');
   const r = build(state); last = svg(r, state);
   $('sheet').innerHTML = last;
   const mm = [...r.pen1, ...r.pen2].reduce((s, l) => s + len(l), 0);
   const gaps = r.events.map(e => e.m.gap);
   $('stats').innerHTML = `<b>${r.pen1.length + r.pen2.length}</b> strokes · <b>${(mm / 1000).toFixed(1)} m</b> of ink · gaps <b>${Math.min(...gaps).toFixed(2)}–${Math.max(...gaps).toFixed(2)} m</b>`;
-  $('hint').textContent = `Seed ${state.seed} · ${state.paper} · press R to reroll`;
+  $('hint').innerHTML = `Seed ${state.seed} · ${state.paper}<span class="kbd-hint"> · press R to reroll</span>`; // numbers only, safe as HTML
   history.replaceState(null, '', '#' + new URLSearchParams(Object.entries(state)).toString());
 }
 $('ghosts').oninput = e => { state.ghosts = +e.target.value; render(); };
@@ -121,6 +124,11 @@ $('svg').onclick = () => {
 // Restore from the URL so a drawing can be shared
 for (const [k, v] of new URLSearchParams(location.hash.slice(1))) if (k in state) state[k] = typeof state[k] === 'number' ? +v : v;
 if (!PAPERS[state.paper]) state.paper = 'A3';
+// Keep shared links inside the controls' ranges, so the outputs never show NaN or 99
+const clamp = (v, lo, hi, d) => Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : d;
+state.ghosts = clamp(state.ghosts, 4, 40, 14); state.count = clamp(state.count, 1, 24, 12); state.seed = clamp(state.seed, 0, 1e6, 1);
+if (![1, 2].includes(state.pens)) state.pens = 2;
+if (!['grid', 'street', 'rosette'].includes(state.layout)) state.layout = 'grid';
 render();
 </script>
 </body>

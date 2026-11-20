@@ -7,19 +7,15 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Morning Slip</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../lab.css">
 <style>
   /* Layout: options on the left, the receipt preview on the right; printing shows only the receipt */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --err: #b42318; --field: #f4f2ed;
-          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --err: #ff8270; --field: #1e1e1c; color-scheme: dark; }
-  }
+  :root { --err: #b42318; }
+  @media (prefers-color-scheme: dark) { :root { --err: #ff8270; } }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); font-size-adjust: from-font; }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 40px;
           grid-template-columns: minmax(0, 1fr) minmax(0, 420px); align-items: start; }
   @media (max-width: 820px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
-  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
   h1 { font: 400 clamp(56px, 9vw, 112px)/.85 var(--display); font-size-adjust: cap-height from-font; text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 24px; max-width: 52ch; }
@@ -30,10 +26,8 @@
   .checks label { display: flex; gap: 8px; align-items: center; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: 14px; }
   .checks input { accent-color: var(--acc); width: 18px; height: 18px; }
   button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
-           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
   @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
-  button.primary { background: #c2210b; border-color: #c2210b; color: #fff; }
-  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   input[aria-invalid="true"] { border-color: var(--err); }
   .status { min-height: 1.5em; margin: 2px 0 0; color: var(--dim); font-size: 12px; }
   .status.err { color: var(--err); font-weight: 700; }
@@ -41,12 +35,6 @@
   .slip { position: sticky; top: 16px; display: grid; justify-items: center; }
   .slip img { display: block; width: 100%; max-width: 384px; height: auto; image-rendering: pixelated; background: #fff;
               box-shadow: 0 18px 30px -18px rgb(0 0 0 / .55); filter: drop-shadow(0 1px 0 rgb(0 0 0 / .15)); }
-  /* Touch baseline (same as the other pages) */
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a { touch-action: manipulation; }
-  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active { transform: scale(.97); }
-  @media (pointer: coarse) { input, select { font-size: 16px !important; } button { min-block-size: 44px; } }
   @media print {
     body { background: #fff; }
     .wrap { display: block; padding: 0; }
@@ -118,7 +106,7 @@ const hhmm = m => `${pad2(Math.floor(((m % 1440) + 1440) % 1440 / 60))}:${pad2((
 
 async function weather(p) {
   const u = `https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset&hourly=temperature_2m&timezone=auto&forecast_days=1`;
-  const j = await (await fetch(u)).json();
+  const j = await (await fetch(u, { signal: AbortSignal.timeout(8000) })).json();
   if (!j.daily) throw new Error(j.reason || 'no forecast');
   return { min: j.daily.temperature_2m_min[0], max: j.daily.temperature_2m_max[0], rain: j.daily.precipitation_probability_max[0], code: j.daily.weather_code[0],
            rise: j.daily.sunrise[0].slice(11), set: j.daily.sunset[0].slice(11), hourly: j.hourly.temperature_2m };
@@ -274,12 +262,21 @@ function drawIcon(x, kind, ox, oy, s, k) {
 }
 
 /* ---------- Page ---------- */
-let canvas = null;
+let canvas = null, renderSeq = 0;
+// Draw at once with what is local (habits, shared hour, prompt), then again when the weather arrives or fails
 async function render() {
+  const seq = ++renderSeq;
   const data = { habits: habits(), shared: sharedHours(), weather: null, weatherErr: '' };
-  if (cfg.sections.weather && cfg.place) {
-    try { data.weather = await weather(cfg.place); } catch (e) { data.weatherErr = `Weather unavailable (${e.message}).`; }
-  }
+  const wantWeather = cfg.sections.weather && cfg.place;
+  if (wantWeather) data.weatherErr = 'Weather loading…';
+  await paint(data);
+  if (!wantWeather || seq !== renderSeq) return;
+  try { data.weather = await weather(cfg.place); data.weatherErr = ''; }
+  // Plain words on the paper, never a raw "Failed to fetch"; kept under ~40 characters to fit one line at 58 mm
+  catch (e) { data.weatherErr = `Weather unavailable (${e.name === 'TimeoutError' ? 'timed out' : e instanceof TypeError || !navigator.onLine ? 'offline' : 'no forecast'})`; }
+  if (seq === renderSeq) await paint(data);
+}
+async function paint(data) {
   await fontsReady;
   canvas = draw(data);
   $('out').src = canvas.toDataURL('image/png');
@@ -294,7 +291,7 @@ async function setPlace(q, { silent = false } = {}) {
   const btn = $('setcity');
   if (!silent) { btn.disabled = true; status(`Looking up ${q}…`); }
   try {
-    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`);
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const j = await res.json();
     if (seq !== lookupSeq) return false;
@@ -343,9 +340,15 @@ $('png').onclick = () => canvas?.toBlob(b => { if (!b) return; const a = documen
 
 (async () => {
   // First visit: guess the city from the browser's time zone (Europe/Warsaw -> Warsaw); nothing is sent until then
-  if (!cfg.place) { const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' '); if (city && city !== 'UTC') await setPlace(city, { silent: true }); }
+  // Draw first so the slip never waits on the network
+  render();
+  if (!cfg.place) {
+    const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' '), seq = lookupSeq + 1;
+    if (city && city !== 'UTC' && await setPlace(city, { silent: true })) render();
+    // The guess failed (offline, unknown zone or UTC): say how to set a city, unless a search the user started has taken over the status line
+    else if (!cfg.place && lookupSeq <= seq && !$('status').textContent) status('Couldn’t guess your city. Type one above or use your location.');
+  }
   if (cfg.place) $('q').value = cfg.place.name === 'Here' ? '' : cfg.place.name;
-  await render();
 })();
 </script>
 </body>

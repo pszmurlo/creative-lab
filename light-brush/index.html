@@ -7,42 +7,45 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Light Brush</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../lab.css">
 <style>
   /* Layout: setup (controls beside a preview of what the camera will catch); Run covers the screen in black and plays the image one slice at a time */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed;
-          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; color-scheme: dark; }
-  }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); font-size-adjust: from-font; }
+  body { font-size-adjust: from-font; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 32px;
           grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
-  @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
-  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
+  /* Desktop: intro, controls and tips down the left; the preview holds the right column and stays in view */
+  .wrap { grid-template-areas: "intro out" "controls out" "tips out"; row-gap: 0; }
+  .intro { grid-area: intro; } .controls { grid-area: controls; } ol.tips { grid-area: tips; }
+  .out { grid-area: out; position: sticky; top: 16px; }
   h1 { font: 400 clamp(52px, 8vw, 104px)/.85 var(--display); font-size-adjust: cap-height from-font; text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 22px; }
   fieldset { border: 0; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }
   legend, label { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
   label { display: grid; gap: 6px; margin-bottom: 12px; }
+  label > span { text-transform: none; } /* values read "6 s", not "6 S" */
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
   input[type=text], select { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; min-width: 0; }
   input[type=range] { width: 100%; accent-color: var(--acc); }
-  button, .file { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
-           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; display: inline-block; }
-  @media (hover: hover) and (pointer: fine) { button:hover, .file:hover { background: var(--fg); color: var(--bg); } }
-  button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
-  button.primary { background: #c2210b; border-color: #c2210b; color: #fff; font-size: 16px; padding: 14px 22px; }
+  button.primary { font-size: 16px; padding: 14px 22px; }
   .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-  .file:has(input:focus-visible) { outline: 3px solid var(--acc); outline-offset: 2px; } /* keyboard focus only, not after a click */
-  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .file:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; } /* keyboard focus only, not after a click */
   .preview { background: #000; border: 3px solid var(--line); padding: 16px; display: grid; place-items: center; min-height: 240px; }
   .preview canvas { max-width: 100%; height: auto; display: block; }
   .facts { color: var(--dim); font-size: 12px; margin: 10px 0 0; }
   .facts b { color: var(--fg); }
+  .msg { color: var(--acc-text); font-size: 12px; margin: 6px 0 0; min-block-size: 1.5em; }
   ol.tips { color: var(--dim); font-size: 12px; padding-left: 18px; margin: 18px 0 0; }
   ol.tips li { margin-bottom: 4px; }
+  /* Phone: the preview comes straight after the intro and sticks to the top while you set it up, so Run sits under
+     the controls that shape what you see */
+  @media (max-width: 860px) {
+    .wrap { grid-template-columns: minmax(0, 1fr); grid-template-areas: "intro" "preview" "facts" "controls" "tips"; }
+    .out { display: contents; }
+    .preview { grid-area: preview; position: sticky; top: 0; z-index: 1; min-height: 0; padding: 10px; }
+    .preview canvas { width: auto; max-height: 24svh; }
+    #facts { grid-area: facts; margin: 8px 0 20px; }
+  }
   /* Run: full black modal dialog, the brush band, countdown numbers */
   #run { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: #000; color: #fff; cursor: none; overflow: hidden; overscroll-behavior: contain; }
   #run::backdrop { background: #000; overflow: hidden; overscroll-behavior: contain; }
@@ -55,38 +58,34 @@
   #runhint { margin: 0; color: #b8b5ae; font-size: 12px; pointer-events: none; }
   #run.sweeping #runhint { visibility: hidden; }
   #run.sweeping #stop:not(:focus-visible) { opacity: 0; }
-  /* Touch baseline (same as the other pages) */
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a, .file { touch-action: manipulation; }
-  button, .file { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active, .file:active { transform: scale(.97); }
-  @media (pointer: coarse) { input, select { font-size: 16px !important; } button, .file { min-block-size: 44px; } }
 </style>
 </head>
 <body>
 <main class="wrap">
-  <div>
+  <div class="intro">
     <a class="back" href="../">← Creative Lab</a>
     <h1>Light<br>brush<span>.</span></h1>
     <p class="lede">Paint pictures in the air. Set a camera to a long exposure, press Run, and walk the phone across the frame: the screen plays the image one slice at a time and the camera stitches it together.</p>
-
+  </div>
+  <div class="controls">
     <fieldset><legend>Paint</legend><div class="seg" id="source"></div></fieldset>
     <label id="textrow">Text <input type="text" id="text" value="HELLO" maxlength="32"></label>
     <label id="colorrow">Colour <select id="color"><option value="white">White</option><option value="red">Red</option><option value="rainbow">Rainbow</option></select></label>
-    <div id="filerow" hidden><label class="file">Choose image<input type="file" id="file" accept="image/*"></label><p class="facts">Stays on this device.</p></div>
+    <div id="filerow" hidden><label class="file btn">Choose image<input type="file" id="file" accept="image/*"></label><p class="facts">Stays on this device.</p><p class="msg" id="filemsg" role="status"></p></div>
     <label>Sweep time <span id="durv"></span><input type="range" id="dur" min="2" max="15" step="1" value="6"></label>
     <label>Brush width <span id="bandv"></span><input type="range" id="band" min="5" max="100" step="5" value="40"></label>
     <label>Brightness <span id="brightv"></span><input type="range" id="bright" min="10" max="100" step="5" value="100"></label>
     <fieldset><legend>Walking</legend><div class="seg" id="dir"></div></fieldset>
-    <button type="button" class="primary" id="go">Run</button>
-    <ol class="tips">
+    <button type="button" class="primary" id="go" aria-describedby="gohint">Run</button>
+    <p class="facts" id="gohint" hidden>Choose an image first.</p>
+  </div>
+  <ol class="tips">
       <li>Dark room or night. Camera on a tripod, manual focus on where you'll walk.</li>
       <li>Shutter = sweep time + 2 s, ISO 100, f/8. Start the exposure, then press Run.</li>
       <li>Phone screen to full brightness, auto-brightness off. Hold it upright, screen to the camera.</li>
-      <li>Walk sideways at a steady pace for the whole sweep. A beep counts you in.</li>
-    </ol>
-  </div>
-  <div>
+    <li>Walk sideways at a steady pace for the whole sweep. A beep counts you in.</li>
+  </ol>
+  <div class="out">
     <div class="preview"><canvas id="prev" role="img" aria-label="What the camera will catch"></canvas></div>
     <p class="facts" id="facts"></p>
   </div>
@@ -160,7 +159,7 @@ const SOURCES = {
     return c;
   } },
   image: { label: 'Image', make() {
-    if (!state.image) { const c = document.createElement('canvas'); c.width = H0; c.height = H0; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, H0, H0); x.fillStyle = '#555'; x.font = `24px ${F.mono}`; x.textAlign = 'center'; x.fillText('choose an image', H0 / 2, H0 / 2); return c; }
+    if (!state.image) { const c = document.createElement('canvas'); c.width = H0; c.height = H0; const x = c.getContext('2d'); x.fillStyle = '#000'; x.fillRect(0, 0, H0, H0); x.fillStyle = '#b8b5ae'; x.font = `24px ${F.mono}`; x.textAlign = 'center'; x.fillText('choose an image', H0 / 2, H0 / 2); return c; }
     const im = state.image, w = Math.round(im.width * H0 / im.height), c = document.createElement('canvas'); c.width = w; c.height = H0;
     c.getContext('2d').drawImage(im, 0, 0, w, H0); return c;
   } },
@@ -219,12 +218,14 @@ function cleanup() {
   $('run').classList.remove('sweeping'); $('count').textContent = '';
   lock?.release().catch(() => {}); lock = null; if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
+let stoppedAt = 0;
 function stop() {
-  cleanup();
+  cleanup(); stoppedAt = performance.now();
   if ($('run').open) $('run').close();
 }
 $('stop').addEventListener('click', stop);
-$('run').addEventListener('pointerdown', e => { if (!e.target.closest('#stop')) { e.preventDefault(); stop(); } });
+// Stop on click, not pointerdown: after a touch pointerdown the follow-up click would land on #go under the closed dialog and restart the run
+$('run').addEventListener('click', e => { if (!e.target.closest('#stop')) stop(); });
 $('run').addEventListener('close', cleanup);
 
 /* ---------- Controls ---------- */
@@ -239,6 +240,9 @@ seg('source', 'source', Object.entries(SOURCES).map(([k, s]) => [k, s.label]));
 seg('dir', 'dir', [['ltr', 'Left → right'], ['rtl', 'Right → left']]);
 function sync() {
   for (const k of ['source', 'dir']) $(k).querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state[k])));
+  // Image with nothing chosen yet: nothing to paint, so nothing to run
+  const noImage = state.source === 'image' && !state.image;
+  $('go').disabled = noImage; $('gohint').hidden = !noImage;
   $('dur').value = state.dur; $('band').value = state.band; $('bright').value = state.bright; $('text').value = state.text; $('color').value = state.color;
 }
 $('text').oninput = e => { state.text = e.target.value; update(); };
@@ -246,8 +250,15 @@ $('color').onchange = e => { state.color = e.target.value; update(); };
 $('dur').oninput = e => { state.dur = +e.target.value; update(); };
 $('band').oninput = e => { state.band = +e.target.value; update(); };
 $('bright').oninput = e => { state.bright = +e.target.value; update(); };
-$('file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { state.image = await createImageBitmap(f); state.source = 'image'; sync(); update(); } catch { alert('Could not open that image.'); } };
-$('go').onclick = run;
+// Decode errors go to the status line under the picker, not an alert()
+$('file').onchange = async e => {
+  const f = e.target.files[0], msg = $('filemsg'); if (!f) return;
+  msg.textContent = '';
+  try { state.image = await createImageBitmap(f); state.source = 'image'; sync(); update(); }
+  catch { requestAnimationFrame(() => { msg.textContent = `Couldn't open ${f.name || 'that image'}. Try a JPG or PNG.`; }); }
+  e.target.value = '';
+};
+$('go').onclick = () => { if (performance.now() - stoppedAt > 500) run(); }; // a stray click right after stopping must not start a new run
 sync(); update();
 </script>
 </body>
