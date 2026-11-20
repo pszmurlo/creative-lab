@@ -38,10 +38,24 @@ button, .btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform
 /* Links and labels styled as buttons centre their text like <button> does, and padding counts inside the 44px */
 .btn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: .5em; text-decoration: none; }
 @media (hover: hover) and (pointer: fine) { button:hover, .btn:hover { background: var(--fg); color: var(--bg); } }
-button[aria-pressed=true] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button[aria-pressed=true]:where(:not(.pick)) { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 /* One primary across the lab: red fill, white text (5.97:1) */
 button.primary, .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
 @media (hover: hover) and (pointer: fine) { button.primary:hover, .btn.primary:hover { background: var(--fg); border-color: var(--fg); color: var(--bg); } }
+/* A pressed primary toggle (Play while playing) reads as pressed ink, like every other toggle */
+button.primary[aria-pressed=true] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+
+/* ---------- Selected: picked thumbnails and cards, in ink ---------- */
+/* Opt in with .pick on the item; it reads as selected with aria-pressed=true or .is-selected.
+   - .pick: the item draws no border of its own (the page gives it a transparent one), so selecting inks it in.
+   - .pick.framed: the item already wears an ink border, so selecting doubles it with a 2px ink box-shadow
+     and inverts its .caption.
+   Border and box-shadow, never outline, so the :focus-visible ring still shows on the selected item.
+   Ink, not --acc: the red is only 2.86:1 on paper. A .pick button skips the toggle fill above and keeps its page's background. */
+.pick:is([aria-pressed=true], .is-selected) { border-color: var(--fg); }
+.pick.framed:is([aria-pressed=true], .is-selected) { box-shadow: 0 0 0 2px var(--fg); }
+.pick.framed:is([aria-pressed=true], .is-selected) .caption { background: var(--fg); color: var(--bg); }
+.pick.framed:is([aria-pressed=true], .is-selected) .caption * { color: inherit; }
 
 /* ---------- Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom ---------- */
 html { -webkit-tap-highlight-color: transparent; }

@@ -29,9 +29,9 @@
   details.browse { border-top: 2px solid var(--line); margin-top: 8px; }
   details.browse summary { cursor: pointer; padding: 10px 0; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
   ul.grid { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 110px), 1fr)); }
-  ul.grid button { width: 100%; padding: 0; border: 2px solid transparent; background: var(--field); display: block; }
-  ul.grid button[aria-pressed=true] { border-color: var(--fg); } /* ink, not the 2.86:1 red */
-  ul.grid img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+  /* A .pick: the chosen painting gets lab.css's ink border, 2px clear of the image so it reads on dark canvases too */
+  ul.grid button { width: 100%; padding: 2px; border: 2px solid transparent; background: none; display: block; }
+  ul.grid img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; background: var(--field); }
   ul.grid .pal { display: flex; height: 6px; }
 
   /* Board */
@@ -215,7 +215,7 @@ function renderGrid() {
   const q = filter.toLowerCase(), list = q ? P.filter(p => (p.t + ' ' + p.a).toLowerCase().includes(q)) : P;
   $('grid').replaceChildren(...list.slice(0, shown).map(p => {
     const li = document.createElement('li'), b = document.createElement('button');
-    b.type = 'button'; b.setAttribute('aria-pressed', String(chosen.includes(p))); b.setAttribute('aria-label', `${p.t}, ${p.a}`);
+    b.type = 'button'; b.className = 'pick'; b.setAttribute('aria-pressed', String(chosen.includes(p))); b.setAttribute('aria-label', `${p.t}, ${p.a}`);
     b.innerHTML = palStrip(p); const img = new Image(); img.src = p.img; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
     b.prepend(img); b.onclick = () => toggle(p); li.append(b); return li;
   }));
