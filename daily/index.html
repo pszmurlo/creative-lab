@@ -274,11 +274,31 @@ $('md').onclick = () => {
   const md = ks.map(k => { const d = db.days[k]; return [`## ${new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(parse(k))}`, d.notes.trim(), d.tasks.map(t => `- [${t.done ? 'x' : ' '}] ${t.text}`).join('\n')].filter(Boolean).join('\n\n'); }).join('\n\n');
   download(`daily-page-${key(new Date())}.md`, `# Daily Page\n\n${md}\n`, 'text/markdown');
 };
+// An imported file is untrusted: keep only real day keys and well-formed notes and tasks, and read it all before touching the journal
+const isDay = k => typeof k === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(k) && key(parse(k)) === k;
+const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
+function readExport(d) {
+  if (!isObj(d) || !isObj(d.days)) throw new Error('not a Daily Page export');
+  const days = {}; let skipped = 0;
+  for (const [k, v] of Object.entries(d.days)) {
+    if (!isDay(k) || !isObj(v)) { skipped++; continue; }
+    const tasks = [];
+    for (const t of Array.isArray(v.tasks) ? v.tasks : []) {
+      if (!isObj(t) || typeof t.text !== 'string' || !t.text.trim()) { skipped++; continue; }
+      tasks.push({ id: typeof t.id === 'string' && /^[\w-]{1,40}$/.test(t.id) ? t.id : uid(), text: t.text.trim().slice(0, 200), done: t.done === true, ...(isDay(t.from) && { from: t.from }) });
+    }
+    days[k] = { notes: typeof v.notes === 'string' ? v.notes : '', tasks };
+  }
+  const handled = Object.fromEntries(Object.entries(isObj(d.handled) ? d.handled : {}).filter(([k, v]) => isDay(k) && v === true));
+  return { days, handled, skipped };
+}
 $('import').onchange = async e => {
+  const file = e.target.files[0]; if (!file) return;
   try {
-    const d = JSON.parse(await e.target.files[0].text()); if (!d.days) throw new Error('not a Daily Page export');
-    for (const [k, v] of Object.entries(d.days)) { const cur = dayOf(k); if (!cur.notes.trim()) cur.notes = v.notes || ''; else if (v.notes && v.notes !== cur.notes) cur.notes += '\n\n' + v.notes; const ids = new Set(cur.tasks.map(t => t.id)); cur.tasks.push(...(v.tasks || []).filter(t => !ids.has(t.id))); }
-    Object.assign(db.handled, d.handled || {}); save(); render(); say('Imported.');
+    const d = readExport(JSON.parse(await file.text()));
+    for (const [k, v] of Object.entries(d.days)) { const cur = dayOf(k); if (!cur.notes.trim()) cur.notes = v.notes; else if (v.notes && v.notes !== cur.notes) cur.notes += '\n\n' + v.notes; const ids = new Set(cur.tasks.map(t => t.id)); cur.tasks.push(...v.tasks.filter(t => !ids.has(t.id))); }
+    Object.assign(db.handled, d.handled); save(); render();
+    say(d.skipped ? `Imported. Skipped ${d.skipped} entr${d.skipped === 1 ? 'y' : 'ies'} that didn't look like a day or a task.` : 'Imported.');
   } catch (err) { alert(`Import failed: ${err.message}`); }
   e.target.value = '';
 };
