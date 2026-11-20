@@ -40,9 +40,10 @@
   select { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 6px 8px; border-radius: 0; }
   .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
   h2 { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin: 18px 0 8px; }
-  .shots { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
-  .shots button { flex: none; padding: 0; border: 2px solid transparent; background: #fff; }
-  .shots button[aria-pressed=true] { outline: 3px solid var(--fg); outline-offset: 2px; }
+  /* The row scrolls, which clips anything drawn outside it: 5px of room keeps the focus ring whole */
+  .shots { display: flex; gap: 10px; overflow-x: auto; padding: 5px 5px 6px; }
+  /* A .pick: the selected shot gets lab.css's ink border, 2px clear of the photo so it reads on dark shots and on dark paper */
+  .shots button { flex: none; padding: 2px; border: 2px solid transparent; background: none; }
   .shots img { display: block; height: 150px; width: auto; image-rendering: pixelated; }
   .note { color: var(--dim); font-size: 12px; }
   #printout { display: none; }
@@ -228,7 +229,7 @@ function addShot(canvas, kind) {
 }
 function renderShots() {
   $('shots').replaceChildren(...state.shots.map((s, i) => {
-    const b = document.createElement('button'); b.type = 'button'; b.dataset.i = i;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'pick'; b.dataset.i = i;
     b.setAttribute('aria-label', `${s.kind === 'strip' ? 'Photo strip' : 'Photo'} ${state.shots.length - i}, ${s.at.toLocaleTimeString()}`);
     const im = new Image(); im.src = s.url; im.alt = ''; b.append(im); b.onclick = () => pickShot(i);
     return b;

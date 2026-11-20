@@ -29,8 +29,6 @@
   label, legend { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   input[type=search], select { flex: 1; min-width: 0; font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; }
-  /* Playing: Play reads as pressed ink, not red with a red border (lab.css's .primary otherwise wins over [aria-pressed]) */
-  button.primary[aria-pressed=true] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
   .presets button { padding: 6px 8px; font-size: 11px; }
   /* Short enough that the caption with Play fits a laptop screen under the sticky top */
   .stagewrap { position: sticky; top: 16px; width: min(100%, max(360px, 100svh - 150px)); }
