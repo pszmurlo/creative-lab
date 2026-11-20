@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Bookmark Zine</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap">
 <style>
@@ -242,7 +244,7 @@ function renderPick() {
 }
 function shuffle() {
   // Prefer posts with something to say: the longest texts, shuffled
-  const pool = [...all].sort((a, b) => clean(b.text).length - clean(a.text).length).slice(0, 24);
+  const pool = all.toSorted((a, b) => clean(b.text).length - clean(a.text).length).slice(0, 24);
   for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
   state.chosen = pool.slice(0, 6);
 }

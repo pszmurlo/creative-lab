@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Daily Page</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
@@ -21,7 +23,7 @@
   .date { font: 700 13px var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin-top: 8px; }
   .nav { display: flex; gap: 6px; }
   button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; min-inline-size: 24px; }
-  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
+  @media (hover: hover) and (pointer: fine) { button:hover, .foot label.btn:hover { background: var(--fg); color: var(--bg); } }
   button.primary { background: var(--fg); color: var(--bg); }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   .strip { display: grid; grid-template-columns: repeat(14, minmax(0, 1fr)); gap: 3px; margin-top: 14px; }
@@ -64,13 +66,13 @@
   .foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 28px; border-top: 1px solid var(--line); padding-top: 14px; }
   .foot .stats { color: var(--dim); font-size: 12px; margin-right: auto; }
   .foot label.btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
-  .foot label.btn:focus-within { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .foot label.btn:has(input:focus-visible) { outline: 3px solid var(--acc); outline-offset: 2px; } /* keyboard focus only, not after a click */
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   /* Touch baseline (same as the other pages) */
   html { -webkit-tap-highlight-color: transparent; }
   button, a, label.btn { touch-action: manipulation; }
-  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active { transform: scale(.97); }
+  button, label.btn { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active, label.btn:active { transform: scale(.97); }
   @media (pointer: coarse) { input, textarea { font-size: 16px !important; } button, label.btn { min-block-size: 44px; } .task .acts button { min-inline-size: 44px; } }
 </style>
 </head>
@@ -185,9 +187,12 @@ function renderTasks() {
   if (!page.tasks.length) { list.innerHTML = '<li class="empty">Nothing yet.</li>'; return; }
   list.replaceChildren(...page.tasks.map(t => {
     const li = document.createElement('li'); li.className = 'task' + (t.done ? ' done' : ''); li.dataset.id = t.id;
-    const fromTxt = t.from ? `<small>from ${new Intl.DateTimeFormat(lang, { weekday: 'short', day: 'numeric', month: 'short' }).format(parse(t.from))}</small>` : '';
-    li.innerHTML = `<div class="track"><div class="content"><input type="checkbox" id="t-${t.id}"${t.done ? ' checked' : ''}><label for="t-${t.id}"></label><span class="acts"><button type="button" class="mv">→<span class="sr"> Move to tomorrow: </span></button><button type="button" class="rm">×<span class="sr"> Delete: </span></button></span></div></div>`;
-    li.querySelector('label').textContent = t.text; if (fromTxt) li.querySelector('label').insertAdjacentHTML('beforeend', fromTxt);
+    const fromTxt = /^\d{4}-\d{2}-\d{2}$/.test(t.from) ? `<small>from ${new Intl.DateTimeFormat(lang, { weekday: 'short', day: 'numeric', month: 'short' }).format(parse(t.from))}</small>` : '';
+    li.innerHTML = `<div class="track"><div class="content"><input type="checkbox"><label></label><span class="acts"><button type="button" class="mv">→<span class="sr"> Move to tomorrow: </span></button><button type="button" class="rm">×<span class="sr"> Delete: </span></button></span></div></div>`;
+    // Ids and text can come from an imported file: set them as properties, never through innerHTML
+    const cb = li.querySelector('input'), lab = li.querySelector('label');
+    cb.id = lab.htmlFor = `t-${t.id}`; cb.checked = !!t.done;
+    lab.textContent = t.text; if (fromTxt) lab.insertAdjacentHTML('beforeend', fromTxt);
     li.querySelectorAll('.acts .sr').forEach(s => s.append(t.text));
     li.querySelector('input').onchange = e => { t.done = e.target.checked; li.classList.toggle('done', t.done); save(); render(); };
     li.querySelector('.mv').onclick = () => dismiss(li, () => moveToTomorrow(t.id));

@@ -55,14 +55,17 @@
   .wall figcaption { margin-top: 6px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: min(1100px, 96vw); width: 100%; overscroll-behavior: contain; }
   dialog::backdrop { background: rgba(10,10,10,.75); overflow: hidden; overscroll-behavior: contain; }
-  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
-  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
-  dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion.
+     The exit only runs where the dialog can stay in the top layer while it fades (overlay); elsewhere it closes at once */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1); }
   @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @supports (overlay: auto) {
+    dialog, dialog::backdrop { transition-property: opacity, scale, overlay, display; transition-behavior: allow-discrete; }
+    dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  }
   @media (prefers-reduced-motion: no-preference) {
-    dialog { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
-    dialog:not([open]) { scale: .96; }
     @starting-style { dialog[open] { scale: .96; } }
+    @supports (overlay: auto) { dialog:not([open]) { scale: .96; } }
   }
   .lb { display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
   .lb canvas { width: 100%; height: auto; display: block; max-height: 86svh; object-fit: contain; background: #000; }
@@ -71,9 +74,9 @@
   .lb aside p { margin: 0 0 6px; color: var(--dim); }
   .lb aside a { color: var(--fg); }
   @media (max-width: 720px) { .lb { grid-template-columns: 1fr; } .lb aside { border-left: 0; border-top: 3px solid var(--line); } }
-  .toast { position: fixed; bottom: 16px; left: 50%; transform: translate(-50%, 8px); background: var(--fg); color: var(--bg); padding: 8px 14px; font-weight: 700; opacity: 0; transition: opacity 400ms ease, transform 400ms ease; pointer-events: none; }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
-  @media (prefers-reduced-motion: reduce) { .wall canvas { transition: none; } .toast { transform: translateX(-50%); transition: opacity 400ms ease; } .toast.show { transform: translateX(-50%); } }
+  .wall figure:active canvas { transform: scale(.98); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { .wall canvas { transition: none; } }
 
   /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
   html { -webkit-tap-highlight-color: transparent; }
@@ -125,7 +128,7 @@
   <div class="wall" id="wall"></div>
 </main>
 
-<dialog id="lightbox" aria-labelledby="lbMeta">
+<dialog id="lightbox" closedby="any" aria-labelledby="lbMeta">
   <div class="lb">
     <canvas id="big" width="1000" height="1414"></canvas>
     <aside>
@@ -135,11 +138,11 @@
       <button type="button" id="lbReroll" title="Reroll (R)">Reroll</button>
       <button type="button" class="primary" id="lbSave" title="Save PNG (S)">Save PNG</button>
       <p><a id="lbLink" href="#" target="_blank" rel="noopener">Open the post on X</a></p>
-      <button type="button" id="lbClose">Close</button>
+      <span class="sr" role="status" id="lbStatus"></span>
+      <button type="button" id="lbClose" command="close" commandfor="lightbox">Close</button>
     </aside>
   </div>
 </dialog>
-<div class="toast" id="toast"></div>
 
 <script src="bookmarks.js"></script>
 <script src="posters.js"></script>
@@ -192,14 +195,15 @@ function cycle(key, list) {
 document.getElementById('lbLayout').onclick = () => cycle('layout', LAYOUTS);
 document.getElementById('lbInk').onclick = () => cycle('ink', Object.keys(INKS));
 document.getElementById('lbReroll').onclick = () => { items[current].seed++; items[current].layout = null; items[current].ink = null; drawBig(); refreshThumb(); };
-document.getElementById('lbClose').onclick = () => lb.close();
+// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
+if (!('commandForElement' in HTMLButtonElement.prototype)) document.getElementById('lbClose').onclick = () => lb.close();
 document.getElementById('lbSave').onclick = () => {
   const out = document.createElement('canvas'); out.width = 2000; out.height = Math.round(2000 * H / W);
   render(out, items[current], current, 2000 / W);
   out.toBlob(blob => {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
     a.download = `poster-${String(current + 1).padStart(2, '0')}-${items[current].handle}.png`; a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000); toast('Saved PNG');
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000); saved();
   });
 };
 lb.addEventListener('keydown', e => {
@@ -211,7 +215,14 @@ lb.addEventListener('keydown', e => {
   if (k === 's') document.getElementById('lbSave').click();
   if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { current = (current + (e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length; drawBig(); }
 });
-lb.addEventListener('click', e => { if (e.target === lb) lb.close(); });
+// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
+// so a text-selection drag that ends on the backdrop doesn't close the dialog
+if (!('closedBy' in HTMLDialogElement.prototype)) {
+  const outside = e => { const r = lb.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
+  let pressedOutside = false;
+  lb.addEventListener('pointerdown', e => { pressedOutside = outside(e); });
+  lb.addEventListener('pointerup', e => { if (pressedOutside && outside(e)) lb.close(); });
+}
 
 // ---------- toolbar ----------
 const pal = document.getElementById('palette');
@@ -228,7 +239,8 @@ document.getElementById('own').onsubmit = e => {
   document.getElementById('ownText').value = '';
   renderWall(); openLb(0);
 };
-function toast(msg) { const el = document.getElementById('toast'); el.textContent = msg; el.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('show'), 1500); }
+// Save feedback lives on the button: a toast outside the modal would sit under its backdrop and be inert
+function saved() { const b = document.getElementById('lbSave'), st = document.getElementById('lbStatus'); b.textContent = 'Saved'; st.textContent = 'Saved PNG'; clearTimeout(saved.t); saved.t = setTimeout(() => { b.textContent = 'Save PNG'; st.textContent = ''; }, 1500); }
 
 // Wait for the poster faces (max 3 s) so the first print uses the real type.
 const fontsReady = Promise.all(['100px Anton', '100px "Archivo Black"', '20px "Space Mono"'].map(f => document.fonts.load(f)));

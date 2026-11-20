@@ -59,14 +59,17 @@
   /* Sticker dialog */
   dialog { width: min(560px, calc(100vw - 32px)); border: 3px solid var(--line); background: var(--bg); color: var(--fg); padding: 20px; overscroll-behavior: contain; }
   dialog::backdrop { background: rgb(0 0 0 / .6); overflow: hidden; overscroll-behavior: contain; }
-  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
-  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
-  dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion.
+     The exit only runs where the dialog can stay in the top layer while it fades (overlay); elsewhere it closes at once */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1); }
   @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @supports (overlay: auto) {
+    dialog, dialog::backdrop { transition-property: opacity, scale, overlay, display; transition-behavior: allow-discrete; }
+    dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  }
   @media (prefers-reduced-motion: no-preference) {
-    dialog { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
-    dialog:not([open]) { scale: .96; }
     @starting-style { dialog[open] { scale: .96; } }
+    @supports (overlay: auto) { dialog:not([open]) { scale: .96; } }
   }
   dialog h3 { margin: 0 0 12px; font: 400 34px/1 var(--display); text-transform: uppercase; }
   .qr { display: grid; place-items: center; background: #fff; padding: 12px; width: 220px; margin: 0 auto 12px; }
@@ -163,7 +166,7 @@
       <span class="tip" role="status"></span>
     </span>
     <button type="button" id="write" hidden>Write to sticker</button>
-    <button type="button" class="close" id="dlgclose">Close</button>
+    <button type="button" class="close" id="dlgclose" command="close" commandfor="dlg">Close</button>
   </div>
   <p class="note" id="writemsg" role="status"></p>
   <p class="note">On Android, Chrome can write the sticker directly. On iPhone, write this link with a free app like NFC Tools; iPhones read link stickers without any app. The QR code does the same job for anyone without NFC.</p>
@@ -325,13 +328,15 @@ function openSticker(slug) {
   };
   dlg.showModal();
 }
-$('dlgclose').onclick = () => dlg.close();
+// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
+if (!('commandForElement' in HTMLButtonElement.prototype)) $('dlgclose').onclick = () => dlg.close();
+// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
+// so a text-selection drag that ends on the backdrop doesn't close the dialog
 if (!('closedBy' in HTMLDialogElement.prototype)) {
-  dlg.addEventListener('click', e => {
-    if (e.target !== dlg) return;
-    const r = dlg.getBoundingClientRect();
-    if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) dlg.close();
-  });
+  const outside = e => { const r = dlg.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
+  let pressedOutside = false;
+  dlg.addEventListener('pointerdown', e => { pressedOutside = outside(e); });
+  dlg.addEventListener('pointerup', e => { if (pressedOutside && outside(e)) dlg.close(); });
 }
 
 // Copy button (Invoker Commands, with a click fallback)
