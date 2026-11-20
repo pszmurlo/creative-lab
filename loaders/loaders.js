@@ -17,10 +17,10 @@ window.LOADERS = [
     day: 2, name: "Chunk bar", added: "2026-11-18",
     note: "A progress bar that fills in eight hard steps, holds full for a beat, then starts again.",
     html: `<div class="bar" role="progressbar" aria-label="Loading"><i></i></div>`,
-    css: `.bar { width: 200px; height: 28px; border: 3px solid var(--ink); padding: 3px; box-sizing: border-box; }
+    css: `.bar { width: 176px; height: 28px; border: 3px solid var(--ink); padding: 3px; box-sizing: border-box; }
 i { display: block; height: 100%; background: var(--ink); transform-origin: left; animation: fill 2.4s steps(8, jump-none) infinite; }
 @keyframes fill { from { transform: scaleX(0); } 75%, to { transform: scaleX(1); } }
-@media (prefers-reduced-motion: reduce) { i { animation-duration: 6s; } }`
+@media (prefers-reduced-motion: reduce) { i { animation-duration: 9.6s; } }`
   },
   {
     day: 3, name: "Wave grid", added: "2026-11-18",
