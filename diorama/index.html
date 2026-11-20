@@ -239,6 +239,8 @@ let retryWith = null;
 function status(msg, state, retry = null) {
   $('status').textContent = msg;
   if (state) $('msg').dataset.state = state; else delete $('msg').dataset.state;
+  // Hiding a focused Retry would drop keyboard focus to <body>; hand it to the picture instead
+  if (!retry && document.activeElement === $('retry')) cv.focus();
   retryWith = retry; $('retry').hidden = !retry;
 }
 $('retry').onclick = () => retryWith?.();
