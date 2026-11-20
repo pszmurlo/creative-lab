@@ -7,10 +7,10 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
   /* Layout: options on the left, the receipt preview on the right; printing shows only the receipt */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --err: #b42318; --field: #f4f2ed;
           --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --err: #ff8270; --field: #1e1e1c; color-scheme: dark; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); font-size-adjust: from-font; }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 40px;
@@ -32,8 +32,9 @@
   @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
   button.primary { background: var(--acc); border-color: var(--acc); color: #fff; }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
-  .status { min-height: 1.5em; color: var(--dim); font-size: 12px; }
-  .status.err { color: var(--acc); }
+  input[aria-invalid="true"] { border-color: var(--err); }
+  .status { min-height: 1.5em; margin: 2px 0 0; color: var(--dim); font-size: 12px; }
+  .status.err { color: var(--err); font-weight: 700; }
   .note { color: var(--dim); font-size: 12px; }
   .slip { position: sticky; top: 16px; display: grid; justify-items: center; }
   .slip img { display: block; width: 100%; max-width: 384px; height: auto; image-rendering: pixelated; background: #fff;
@@ -61,13 +62,14 @@
     <h1>Morning<br>slip<span>.</span></h1>
     <p class="lede">A receipt for the day: weather, your Tap Log streaks, today's shared hour with friends and a prompt to make something. Drawn in pure black and white at thermal-printer width.</p>
 
-    <form id="search">
+    <form id="search" novalidate>
       <label for="q">Weather for</label>
       <div class="row">
-        <input id="q" type="search" placeholder="City" autocomplete="off" required>
-        <button type="submit">Set</button>
+        <input id="q" name="city" type="search" placeholder="City" autocomplete="off" aria-invalid="false" required>
+        <button type="submit" id="setcity">Set</button>
         <button type="button" id="geo">Use my location</button>
       </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
     </form>
     <fieldset>
       <legend>Paper</legend>
@@ -87,7 +89,6 @@
       <button type="button" class="primary" id="print">Print</button>
       <button type="button" id="png">Save PNG</button>
     </div>
-    <p class="status" id="status" role="status"></p>
     <p class="note">Most USB and Bluetooth receipt printers show up as normal printers: Print sends the slip at true width. For printers driven by a phone app, save the PNG; it's already 1-bit at the printer's 203 dpi. Streaks and the shared hour come from <a href="../tap/">Tap Log</a> and <a href="../shared-hour/">Shared Hour</a> in this browser. Weather by <a href="https://open-meteo.com">Open-Meteo</a>.</p>
   </div>
   <div class="slip"><img id="out" alt=""></div>
@@ -99,7 +100,14 @@ const $ = id => document.getElementById(id);
 const store = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
 const cfg = Object.assign({ paper: 58, place: null, sections: { weather: true, habits: true, shared: true, prompt: true } }, store.get('morning-slip', {}));
 const save = () => store.set('morning-slip', cfg);
-const status = (m, err) => { $('status').textContent = m; $('status').className = 'status' + (err ? ' err' : ''); };
+const status = (m, err = false, invalid = false) => {
+  const el = $('status'), q = $('q');
+  el.textContent = m;
+  el.className = 'status' + (err ? ' err' : '');
+  q.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+  if (invalid && m) q.setAttribute('aria-describedby', 'status');
+  else q.removeAttribute('aria-describedby');
+};
 
 /* ---------- Data ---------- */
 const dayKey = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -278,13 +286,48 @@ async function render() {
   document.documentElement.style.setProperty('--print-w', mm + 'mm');
   $('pagesize').textContent = `@page { size: ${cfg.paper}mm ${Math.ceil(canvas.height / canvas.width * mm) + 10}mm; margin: 0 ${(cfg.paper - mm) / 2}mm; }`;
 }
-async function setPlace(q) {
-  status(`Looking up ${q}…`);
-  const j = await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`)).json();
-  const h = j.results?.[0]; if (!h) { status(`Couldn't find “${q}”.`, true); return false; }
-  cfg.place = { name: h.name, lat: h.latitude, lon: h.longitude }; save(); status(`Weather for ${h.name}, ${h.country || ''}.`); return true;
+let lookupSeq = 0;
+async function setPlace(q, { silent = false } = {}) {
+  const seq = ++lookupSeq;
+  const btn = $('setcity');
+  if (!silent) { btn.disabled = true; status(`Looking up ${q}…`); }
+  try {
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const j = await res.json();
+    if (seq !== lookupSeq) return false;
+    const h = j.results?.[0];
+    if (!h) {
+      if (!silent) {
+        status(`City “${q}” not found. Check the spelling and try again.`, true, true);
+        $('q').focus();
+      }
+      return false;
+    }
+    cfg.place = { name: h.name, lat: h.latitude, lon: h.longitude }; save();
+    status(`Weather for ${h.name}${h.country ? ', ' + h.country : ''}.`);
+    return true;
+  } catch {
+    if (seq !== lookupSeq) return false;
+    if (!silent) {
+      const kept = cfg.place?.name ? ` Keeping ${cfg.place.name}.` : '';
+      status(`Couldn't reach the city lookup service.${kept} Check your connection and try again.`, true, true);
+      $('q').focus();
+    }
+    return false;
+  } finally {
+    if (seq === lookupSeq && !silent) btn.disabled = false;
+  }
 }
-$('search').addEventListener('submit', async e => { e.preventDefault(); if (await setPlace($('q').value.trim())) render(); });
+$('q').addEventListener('input', () => {
+  if ($('q').getAttribute('aria-invalid') === 'true') status('');
+});
+$('search').addEventListener('submit', async e => {
+  e.preventDefault();
+  const q = $('q').value.trim();
+  if (!q) { status('Enter a city name to look up.', true, true); $('q').focus(); return; }
+  if (await setPlace(q)) render();
+});
 $('geo').onclick = () => {
   if (!navigator.geolocation) return status('This browser has no location access.', true);
   status('Asking for your location…');
@@ -298,7 +341,7 @@ $('png').onclick = () => canvas?.toBlob(b => { if (!b) return; const a = documen
 
 (async () => {
   // First visit: guess the city from the browser's time zone (Europe/Warsaw -> Warsaw); nothing is sent until then
-  if (!cfg.place) { const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' '); if (city && city !== 'UTC') await setPlace(city).catch(() => {}); }
+  if (!cfg.place) { const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' '); if (city && city !== 'UTC') await setPlace(city, { silent: true }); }
   if (cfg.place) $('q').value = cfg.place.name === 'Here' ? '' : cfg.place.name;
   await render();
 })();
