@@ -39,11 +39,12 @@
   main { padding: 24px max(16px, 3vw) 64px; }
   .count { margin: 0 0 16px; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
   .wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+  @media (max-width: 480px) { .wall { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; } } /* two posters per row, not 43 full-width ones */
   .wall figure { margin: 0; cursor: zoom-in; }
   .wall canvas { width: 100%; height: auto; display: block; box-shadow: 0 1px 0 rgba(0,0,0,.15), 4px 6px 0 rgba(0,0,0,.12); transition: transform .15s; }
   @media (hover: hover) and (pointer: fine) { .wall figure:hover canvas { transform: translateY(-3px) rotate(-.4deg); } }
   .wall figcaption { margin-top: 6px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: min(1100px, 96vw); width: 100%; overscroll-behavior: contain; }
+  dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: 96vw; width: fit-content; overscroll-behavior: contain; }
   dialog::backdrop { background: rgba(10,10,10,.75); overflow: hidden; overscroll-behavior: contain; }
   /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion.
      The exit only runs where the dialog can stay in the top layer while it fades (overlay); elsewhere it closes at once */
@@ -57,13 +58,23 @@
     @starting-style { dialog[open] { scale: .96; } }
     @supports (overlay: auto) { dialog:not([open]) { scale: .96; } }
   }
-  .lb { display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
-  .lb canvas { width: 100%; height: auto; display: block; max-height: 86svh; object-fit: contain; background: #000; }
+  /* The dialog sizes to the poster: height-led canvas plus a fixed control column, no letterbox */
+  .lb { display: grid; grid-template-columns: auto 260px; }
+  /* Width from the poster's 1:√2 ratio: with width:auto the canvas reports its 1400px bitmap and the dialog stretches */
+  .lb canvas { display: block; height: min(86svh, 1414px); width: calc(min(86svh, 1414px) / 1.4142); max-width: calc(96vw - 266px); object-fit: contain; }
   .lb aside { padding: 20px; display: flex; flex-direction: column; gap: 10px; border-left: 3px solid var(--line); }
-  .lb aside h2 { margin: 0 0 6px; font: inherit; color: var(--dim); }
-  .lb aside p { margin: 0 0 6px; color: var(--dim); }
+  .lb .top { display: flex; gap: 10px; align-items: start; justify-content: space-between; }
+  .lb aside h2 { margin: 0; font: inherit; color: var(--dim); }
+  .lb .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .lb aside p { margin: 0; color: var(--dim); }
   .lb aside a { color: var(--fg); }
-  @media (max-width: 720px) { .lb { grid-template-columns: 1fr; } .lb aside { border-left: 0; border-top: 3px solid var(--line); } }
+  .lb .keys { font-size: 11px; }
+  /* Phone: poster above, controls below, all on one screen so Close never needs a scroll */
+  @media (max-width: 720px) {
+    .lb { grid-template-columns: 1fr; }
+    .lb canvas { height: min(52svh, calc((96vw - 6px) * 1.4142)); width: auto; max-width: 100%; margin-inline: auto; }
+    .lb aside { border-left: 0; border-top: 3px solid var(--line); padding: 14px; }
+  }
   .wall figure:active canvas { transform: scale(.98); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) { .wall canvas { transition: none; } }
@@ -112,14 +123,21 @@
   <div class="lb">
     <canvas id="big" width="1000" height="1414"></canvas>
     <aside>
-      <h2 id="lbMeta"></h2>
-      <button type="button" id="lbLayout" title="Next layout (L)">Next layout</button>
-      <button type="button" id="lbInk" title="Next ink (P)">Next ink</button>
-      <button type="button" id="lbReroll" title="Reroll (R)">Reroll</button>
-      <button type="button" class="primary" id="lbSave" title="Save PNG (S)">Save PNG</button>
+      <div class="top">
+        <h2 id="lbMeta"></h2>
+        <button type="button" id="lbClose" command="close" commandfor="lightbox">Close</button>
+      </div>
+      <div class="acts">
+        <button type="button" id="lbPrev" aria-label="Previous poster">← Prev</button>
+        <button type="button" id="lbNext" aria-label="Next poster">Next →</button>
+        <button type="button" id="lbLayout">Next layout</button>
+        <button type="button" id="lbInk">Next ink</button>
+        <button type="button" id="lbReroll">Reroll</button>
+        <button type="button" class="primary" id="lbSave">Save PNG</button>
+      </div>
       <p><a id="lbLink" href="#" target="_blank" rel="noopener">Open the post on X</a></p>
+      <p class="keys kbd-hint">Keys: ← → poster · L layout · P ink · R reroll · S save</p>
       <span class="sr" role="status" id="lbStatus"></span>
-      <button type="button" id="lbClose" command="close" commandfor="lightbox">Close</button>
     </aside>
   </div>
 </dialog>
@@ -174,6 +192,9 @@ function cycle(key, list) {
 }
 document.getElementById('lbLayout').onclick = () => cycle('layout', LAYOUTS);
 document.getElementById('lbInk').onclick = () => cycle('ink', Object.keys(INKS));
+const step = d => { current = (current + d + items.length) % items.length; drawBig(); };
+document.getElementById('lbPrev').onclick = () => step(-1);
+document.getElementById('lbNext').onclick = () => step(1);
 document.getElementById('lbReroll').onclick = () => { items[current].seed++; items[current].layout = null; items[current].ink = null; drawBig(); refreshThumb(); };
 // Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
 if (!('commandForElement' in HTMLButtonElement.prototype)) document.getElementById('lbClose').onclick = () => lb.close();
@@ -193,7 +214,7 @@ lb.addEventListener('keydown', e => {
   if (k === 'p') document.getElementById('lbInk').click();
   if (k === 'r') document.getElementById('lbReroll').click();
   if (k === 's') document.getElementById('lbSave').click();
-  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { current = (current + (e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length; drawBig(); }
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') step(e.key === 'ArrowRight' ? 1 : -1);
 });
 // Light dismiss where closedby is missing (Safari). Press and release must both land outside,
 // so a text-selection drag that ends on the backdrop doesn't close the dialog
