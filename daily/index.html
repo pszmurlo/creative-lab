@@ -41,7 +41,6 @@
 
   .banner { border: 2px solid var(--move); padding: 10px 12px; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .banner p { margin: 0; flex: 1; min-width: 200px; }
-  [hidden] { display: none !important; } /* .banner's display: flex would otherwise beat the hidden attribute */
   h2 { font: 700 11px var(--mono); letter-spacing: .12em; text-transform: uppercase; margin: 22px 0 8px; display: flex; flex-wrap: wrap; gap: 2px 12px; justify-content: space-between; }
   h2 span { color: var(--dim); font-weight: 400; }
   textarea#notes { field-sizing: content; height: auto; width: 100%; box-sizing: border-box; min-block-size: 10lh; max-block-size: none;
@@ -75,7 +74,6 @@
   .foot .stats { color: var(--dim); font-size: 12px; margin-right: auto; }
   .foot label.btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
   .foot label.btn:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; } /* keyboard focus only, not after a click */
-  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (pointer: coarse) { .task .acts button { min-inline-size: 44px; } }
 </style>
 </head>
