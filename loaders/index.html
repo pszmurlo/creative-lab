@@ -208,8 +208,6 @@
   function open(i) { show(i); dlg.showModal(); }
   document.getElementById('prev').onclick = () => show(cur - 1);
   document.getElementById('next').onclick = () => show(cur + 1);
-  // Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
-  if (!('commandForElement' in HTMLButtonElement.prototype)) document.getElementById('close').onclick = () => dlg.close();
   let copyT;
   document.getElementById('copy').onclick = async e => {
     const b = e.currentTarget;
@@ -221,14 +219,6 @@
     if (e.key === 'ArrowRight') show(cur + 1);
     if (e.key === 'ArrowLeft') show(cur - 1);
   });
-  // Light dismiss where closedby is missing (Safari). Press and release must both land outside,
-  // so a text-selection drag that ends on the backdrop doesn't close the dialog
-  if (!('closedBy' in HTMLDialogElement.prototype)) {
-    const outside = e => { const r = dlg.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
-    let pressedOutside = false;
-    dlg.addEventListener('pointerdown', e => { pressedOutside = outside(e); });
-    dlg.addEventListener('pointerup', e => { if (pressedOutside && outside(e)) dlg.close(); });
-  }
 </script>
 </body>
 </html>
