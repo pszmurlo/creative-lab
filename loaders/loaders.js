@@ -164,5 +164,102 @@ i { display: block; height: 100%; width: calc(100% + 40px); background: repeatin
   100% { border-radius: 0; rotate: 360deg; scale: 1; background: var(--ink); }
 }
 @media (prefers-reduced-motion: reduce) { .mo i { animation-duration: 12.8s; } }`
+  },
+  {
+    day: 15, name: "Bounce", added: "2026-11-20",
+    note: "A ball drops with an ease-in, squashes flat for a moment on the floor, then rises with an ease-out. The squash is what sells the weight.",
+    html: `<div class="bo" role="progressbar" aria-label="Loading"><i></i></div>`,
+    css: `.bo { position: relative; width: 80px; height: 104px; border-bottom: 4px solid var(--ink); }
+.bo i { position: absolute; left: 50%; bottom: 0; width: 30px; height: 30px; margin-left: -15px; border-radius: 50%; background: var(--acc); transform-origin: 50% 100%; animation: bounce .9s infinite; }
+@keyframes bounce {
+  0%, 100% { translate: 0 -68px; scale: 1; animation-timing-function: cubic-bezier(.55, 0, 1, .45); }
+  44% { translate: 0 0; scale: 1; animation-timing-function: linear; }
+  50% { translate: 0 0; scale: 1.35 .65; animation-timing-function: linear; }
+  56% { translate: 0 0; scale: 1; animation-timing-function: cubic-bezier(0, .55, .45, 1); }
+}
+@media (prefers-reduced-motion: reduce) { .bo i { animation-duration: 3.6s; } }`
+  },
+  {
+    day: 16, name: "Tally", added: "2026-11-20",
+    note: "Four strokes and a red strike, drawn one at a time, then wiped. Each mark gets its own keyframes so they can all be erased together.",
+    html: `<div class="ty" role="progressbar" aria-label="Loading"><i></i><i></i><i></i><i></i><b></b></div>`,
+    css: `.ty { position: relative; display: flex; gap: 10px; height: 64px; padding: 0 6px; }
+.ty i { width: 6px; height: 100%; background: var(--ink); transform-origin: 50% 0; --s0: 1 0; }
+.ty b { position: absolute; left: 0; top: 50px; width: 72px; height: 6px; background: var(--acc); transform-origin: 0 50%; rotate: -34deg; --s0: 0 1; }
+.ty > * { animation: 3.2s cubic-bezier(.3, 0, .2, 1) infinite; }
+${[0,1,2,3,4].map(k => `.ty > :nth-child(${k + 1}) { animation-name: m${k}; }
+@keyframes m${k} { 0%, ${6 + k * 9}% { scale: var(--s0); opacity: 1; } ${12 + k * 9}%, 80% { scale: 1; opacity: 1; } 88%, 100% { scale: 1; opacity: 0; } }`).join("\n")}
+@media (prefers-reduced-motion: reduce) { .ty > * { animation-duration: 12.8s; } }`
+  },
+  {
+    day: 17, name: "Ripple", added: "2026-11-20",
+    note: "Three rings leave the centre a third of a cycle apart. Each grows fast and fades slowly, like a drop landing in water.",
+    html: `<div class="rp" role="progressbar" aria-label="Loading"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i></div>`,
+    css: `.rp { position: relative; width: 100px; height: 100px; }
+.rp i { position: absolute; inset: 0; box-sizing: border-box; border: 4px solid var(--ink); border-radius: 50%; opacity: 0; animation: ring 1.8s cubic-bezier(.2, .6, .4, 1) calc(var(--i) * .6s) infinite; }
+.rp::after { content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px; border-radius: 50%; background: var(--acc); }
+@keyframes ring { from { scale: .15; opacity: 1; } to { scale: 1; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rp i { animation-duration: 7.2s; animation-delay: calc(var(--i) * 2.4s); } }`
+  },
+  {
+    day: 18, name: "Dominoes", added: "2026-11-20",
+    note: "Six tiles tip over in a chain, each a beat after the last, then stand back up. The red one starts it; the last one falls flat.",
+    html: `<div class="dm" role="progressbar" aria-label="Loading">${[0,1,2,3,4,5].map(i => `<i style="--i:${i}"></i>`).join("")}</div>`,
+    css: `.dm { display: flex; align-items: flex-end; gap: 12px; height: 56px; padding: 0 48px 0 4px; border-bottom: 3px solid var(--ink); }
+.dm i { width: 8px; height: 44px; background: var(--ink); transform-origin: 100% 100%; animation: tip 2.4s calc(var(--i) * .09s) infinite alternate; }
+.dm i:first-child { background: var(--acc); }
+.dm i:last-child { --a: 90deg; }
+@keyframes tip { 0%, 20% { rotate: 0deg; animation-timing-function: cubic-bezier(.55, 0, .9, .4); } 55%, 100% { rotate: var(--a, 38deg); } }
+@media (prefers-reduced-motion: reduce) { .dm i { animation-duration: 9.6s; animation-delay: calc(var(--i) * .36s); } }`
+  },
+  {
+    day: 19, name: "Hourglass", added: "2026-11-20",
+    note: "The top drains while the bottom fills, then the glass turns over. Turned over, the full bottom is the full top, so the loop has no jump.",
+    html: `<div class="hg" role="progressbar" aria-label="Loading"><i class="t"></i><i class="s"></i><i class="b"></i></div>`,
+    css: `.hg { position: relative; width: 56px; height: 84px; border-block: 5px solid var(--ink); animation: turn 3.2s infinite; }
+.hg::before { content: ""; position: absolute; inset: 0; background: var(--ink); opacity: .15; clip-path: polygon(0 0, 100% 0, 50% 50%, 100% 100%, 0 100%, 50% 50%); }
+.hg i { position: absolute; left: 0; width: 100%; height: 50%; background: var(--acc); transform-origin: 50% 100%; }
+.hg .t { top: 0; clip-path: polygon(0 0, 100% 0, 50% 100%); animation: drain 3.2s linear infinite; }
+.hg .b { bottom: 0; clip-path: polygon(50% 0, 100% 100%, 0 100%); animation: pile 3.2s linear infinite; }
+.hg .s { top: 50%; left: 50%; width: 2px; margin-left: -1px; animation: stream 3.2s linear infinite; }
+@keyframes turn { 0%, 75% { rotate: 0deg; animation-timing-function: cubic-bezier(.7, 0, .3, 1); } 100% { rotate: 180deg; } }
+@keyframes drain { 0% { scale: 1; } 75%, 100% { scale: 0; } }
+@keyframes pile { 0% { scale: 0; } 75%, 100% { scale: 1; } }
+@keyframes stream { 0%, 72% { opacity: 1; } 74%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .hg, .hg .t, .hg .b, .hg .s { animation-duration: 12.8s; } }`
+  },
+  {
+    day: 20, name: "Counter", added: "2026-11-20",
+    note: "A percentage that counts 00 to 99 and wraps. Two digit strips step with steps(10); the tens strip runs ten times slower than the ones.",
+    html: `<div class="ct" role="progressbar" aria-label="Loading">${[0,1].map(() => `<div class="c"><span>${[0,1,2,3,4,5,6,7,8,9].join("<br>")}</span></div>`).join("")}<b>%</b></div>`,
+    css: `.ct { display: flex; align-items: flex-start; font: 400 64px/1 "Anton", Impact, sans-serif; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ct .c { height: 1em; overflow: hidden; }
+.ct .c span { display: block; animation: roll 20s steps(10) infinite; }
+.ct .c + .c span { animation-duration: 2s; }
+.ct b { font-weight: 400; color: var(--acc); }
+@keyframes roll { to { transform: translateY(-10em); } }
+@media (prefers-reduced-motion: reduce) { .ct .c span { animation-duration: 80s; } .ct .c + .c span { animation-duration: 8s; } }`
+  },
+  {
+    day: 21, name: "Radar", added: "2026-11-20",
+    note: "A conic-gradient sweep turns over crosshairs. The blip lights up exactly when the sweep's leading edge passes it, then fades.",
+    html: `<div class="rd" role="progressbar" aria-label="Loading"><i></i><b></b></div>`,
+    css: `.rd { position: relative; width: 96px; height: 96px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 50%; overflow: hidden;
+  background: linear-gradient(var(--ink), var(--ink)) 50% / 2px 100% no-repeat, linear-gradient(var(--ink), var(--ink)) 50% / 100% 2px no-repeat; }
+.rd i { position: absolute; inset: 0; background: conic-gradient(transparent 0 250deg, var(--acc)); animation: sweep 2s linear infinite; }
+.rd b { position: absolute; left: 61px; top: 22px; width: 10px; height: 10px; border-radius: 50%; background: var(--ink); animation: blip 2s linear infinite; }
+@keyframes sweep { to { rotate: 1turn; } }
+@keyframes blip { 0%, 11% { opacity: 0; scale: .5; } 13% { opacity: 1; scale: 1.2; } 30% { scale: 1; } 70%, 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .rd i, .rd b { animation-duration: 8s; } }`
+  },
+  {
+    day: 22, name: "Barcode", added: "2026-11-20",
+    note: "A red laser line scans a barcode up and down. The bars are just flex items with different widths; alternate makes the scan go both ways.",
+    html: `<div class="bc" role="progressbar" aria-label="Loading">${[3,1,2,1,4,1,1,3,2,1,3,1,2,2,1,4].map(w => `<i style="--w:${w}"></i>`).join("")}<b></b></div>`,
+    css: `.bc { position: relative; display: flex; gap: 3px; height: 64px; padding: 0 8px; }
+.bc i { width: calc(var(--w) * 2px); background: var(--ink); }
+.bc b { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--acc); animation: scan 1.6s cubic-bezier(.45, 0, .55, 1) infinite alternate; }
+@keyframes scan { to { transform: translateY(61px); } }
+@media (prefers-reduced-motion: reduce) { .bc b { animation-duration: 6.4s; } }`
   }
 ];
