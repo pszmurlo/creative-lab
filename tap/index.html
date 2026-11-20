@@ -309,18 +309,8 @@ function openSticker(slug) {
   };
   dlg.showModal();
 }
-// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
-if (!('commandForElement' in HTMLButtonElement.prototype)) $('dlgclose').onclick = () => dlg.close();
-// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
-// so a text-selection drag that ends on the backdrop doesn't close the dialog
-if (!('closedBy' in HTMLDialogElement.prototype)) {
-  const outside = e => { const r = dlg.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
-  let pressedOutside = false;
-  dlg.addEventListener('pointerdown', e => { pressedOutside = outside(e); });
-  dlg.addEventListener('pointerup', e => { if (pressedOutside && outside(e)) dlg.close(); });
-}
 
-// Copy button (Invoker Commands, with a click fallback)
+// Copy button (Invoker Commands)
 const timers = new WeakMap();
 function report(button, ok) {
   const tip = button.nextElementSibling;
@@ -335,11 +325,7 @@ function report(button, ok) {
 async function copy(button, target) {
   try { await navigator.clipboard.writeText(target.innerText.trim()); report(button, true); } catch { report(button, false); }
 }
-if ('CommandEvent' in window) document.addEventListener('command', e => { if (e.command === '--copy') copy(e.source, e.target); }, true);
-else document.addEventListener('click', e => {
-  const b = e.target.closest('button[command="--copy"]'); if (!b) return;
-  const t = document.getElementById(b.getAttribute('commandfor')); if (t) copy(b, t);
-});
+document.addEventListener('command', e => { if (e.command === '--copy') copy(e.source, e.target); }, true);
 
 /* ---------- Forms and data tools ---------- */
 $('newtag').addEventListener('submit', e => {
