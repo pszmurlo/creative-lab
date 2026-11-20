@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dither Booth</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* Layout: live 1-bit preview with the shutter on the left; styles, settings and your shots on the right; printing shows only the chosen shot */
+  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; } }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 28px max(16px, 3vw) 64px; display: grid; gap: 32px; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: start; }
+  @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
+  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  h1 { font: 400 clamp(52px, 8vw, 104px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 span { color: var(--acc); }
+  .lede { color: var(--dim); margin: 0 0 18px; }
+  .stage { position: relative; background: #000; border: 3px solid var(--line); }
+  .stage canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+  .count { position: absolute; inset: 0; display: grid; place-items: center; font: 400 min(40vw, 260px)/1 var(--display); color: var(--acc); pointer-events: none; text-shadow: 0 0 0 #000; }
+  .flash { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; }
+  .flash.on { animation: flash .35s ease-out; }
+  @keyframes flash { from { opacity: .9; } to { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .flash.on { animation: none; } }
+  .srcline { color: var(--dim); font-size: 12px; margin-top: 8px; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .shutter { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none; border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
+  button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
+  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; font-size: 15px; padding: 14px 22px; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  fieldset { border: 0; padding: 0; margin: 0 0 14px; display: grid; gap: 6px; }
+  legend, label { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
+  label { display: grid; gap: 4px; margin-bottom: 10px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button { padding: 6px 9px; font-size: 11px; }
+  input[type=range] { width: 100%; accent-color: var(--acc); }
+  select { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 6px 8px; border-radius: 0; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+  h2 { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; margin: 18px 0 8px; }
+  .shots { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 6px; }
+  .shots button { flex: none; padding: 0; border: 2px solid transparent; background: #fff; }
+  .shots button[aria-pressed=true] { border-color: var(--acc); }
+  .shots img { display: block; height: 150px; width: auto; image-rendering: pixelated; }
+  .note { color: var(--dim); font-size: 12px; }
+  #printout { display: none; }
+  /* Touch baseline (same as the other pages) */
+  html { -webkit-tap-highlight-color: transparent; }
+  button, a { touch-action: manipulation; }
+  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active { transform: scale(.97); }
+  @media (pointer: coarse) { select { font-size: 16px !important; } button { min-block-size: 44px; } }
+  @media print {
+    body { background: #fff; }
+    .wrap { display: none; }
+    #printout { display: block; width: var(--print-w); image-rendering: pixelated; }
+  }
+</style>
+<style id="pagesize"></style>
+</head>
+<body>
+<div class="wrap">
+  <div>
+    <a class="back" href="../">← Creative Lab</a>
+    <h1>Dither<br>booth<span>.</span></h1>
+    <p class="lede">A photo booth in pure black and white. Pick a dither, strike a pose, print it on a receipt printer or save the 1-bit PNG.</p>
+    <div class="stage">
+      <canvas id="view" role="img" aria-label="Live 1-bit camera preview"></canvas>
+      <div class="count" id="count" aria-live="assertive"></div>
+      <div class="flash" id="flash"></div>
+    </div>
+    <div class="srcline"><span id="src">starting camera…</span><span id="dims"></span></div>
+    <div class="shutter">
+      <button type="button" class="primary" id="snap">Take photo (Space)</button>
+      <button type="button" id="strip">Photo strip ×4 (P)</button>
+    </div>
+  </div>
+
+  <div>
+    <fieldset><legend>Dither</legend><div class="seg" id="algo"></div></fieldset>
+    <div class="row">
+      <label>Paper <select id="width"><option value="384">58 mm (384 dots)</option><option value="576">80 mm (576 dots)</option></select></label>
+      <label>Shape <select id="shape"><option value="4:3">4:3</option><option value="1:1">Square</option><option value="3:4">Portrait</option></select></label>
+    </div>
+    <label>Brightness <input type="range" id="bright" min="-60" max="60" value="0"></label>
+    <label>Contrast <input type="range" id="contrast" min="50" max="250" value="120"></label>
+    <label>Dot size (halftone, Bayer) <input type="range" id="dot" min="3" max="14" value="6"></label>
+    <div class="seg" style="margin-bottom:12px">
+      <button type="button" id="mirror" aria-pressed="true">Mirror</button>
+      <button type="button" id="invert" aria-pressed="false">Invert</button>
+    </div>
+
+    <h2>Your shots</h2>
+    <div class="shots" id="shots"><p class="note">Nothing yet. Shots stay in this tab only.</p></div>
+    <div class="shutter">
+      <button type="button" id="print" disabled>Print</button>
+      <button type="button" id="save" disabled>Save PNG</button>
+    </div>
+    <p class="note">Print sends the selected shot at true width to a receipt printer set up as a normal printer; for phone-app printers, save the PNG, which is already 1-bit at 203 dpi.</p>
+  </div>
+</div>
+<img id="printout" alt="">
+
+<script>
+const $ = id => document.getElementById(id);
+const view = $('view'), vctx = view.getContext('2d');
+const src = document.createElement('canvas'), sctx = src.getContext('2d', { willReadFrequently: true });
+const video = document.createElement('video'); video.playsInline = true; video.muted = true;
+const state = { algo: 'atkinson', mirror: true, invert: false, live: false, busy: false, shots: [], pick: -1 };
+
+/* ---------- Dithering: grey (0..255 Float32) in, bits (1 = ink) out ---------- */
+const ALGOS = {
+  atkinson: { label: 'Atkinson', fn: (g, w, h) => diffuse(g, w, h, [[1, 0, 1], [2, 0, 1], [-1, 1, 1], [0, 1, 1], [1, 1, 1], [0, 2, 1]], 8) },
+  floyd: { label: 'Floyd–Steinberg', fn: (g, w, h) => diffuse(g, w, h, [[1, 0, 7], [-1, 1, 3], [0, 1, 5], [1, 1, 1]], 16) },
+  bayer: { label: 'Bayer', fn: bayer },
+  halftone: { label: 'Halftone', fn: halftone },
+  threshold: { label: 'Threshold', fn: (g, w, h) => Uint8Array.from(g, v => v < 128 ? 1 : 0) },
+};
+// Error diffusion. Atkinson spreads only 6/8 of the error, which keeps highlights clean (the classic Mac look).
+function diffuse(g, w, h, kernel, div) {
+  const out = new Uint8Array(w * h), e = Float32Array.from(g);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, old = e[i], nw = old < 128 ? 0 : 255, err = (old - nw) / div;
+    out[i] = nw === 0 ? 1 : 0;
+    for (const [dx, dy, k] of kernel) { const xx = x + dx, yy = y + dy; if (xx >= 0 && xx < w && yy < h) e[yy * w + xx] += err * k; }
+  }
+  return out;
+}
+const B8 = (() => { const m = [[0]]; let n = 1; let a = m; while (n < 8) { const b = []; for (let y = 0; y < n * 2; y++) { b.push([]); for (let x = 0; x < n * 2; x++) b[y].push(4 * a[y % n][x % n] + [[0, 2], [3, 1]][y >= n ? 1 : 0][x >= n ? 1 : 0]); } a = b; n *= 2; } return a; })();
+function bayer(g, w, h) {
+  const s = Math.max(1, Math.round(+$('dot').value / 4)); // bigger dots = coarser matrix cells
+  const out = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const t = (B8[Math.floor(y / s) % 8][Math.floor(x / s) % 8] + .5) / 64 * 255;
+    out[y * w + x] = g[y * w + x] < t ? 1 : 0;
+  }
+  return out;
+}
+// Newspaper dots on a 45° grid: each cell's dot grows with how dark the cell is
+function halftone(g, w, h) {
+  const s = +$('dot').value, out = new Uint8Array(w * h), c = Math.SQRT1_2;
+  const at = (x, y) => g[Math.min(h - 1, Math.max(0, Math.round(y))) * w + Math.min(w - 1, Math.max(0, Math.round(x)))];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const u = (x * c + y * c) / s, v = (-x * c + y * c) / s, cu = Math.floor(u) + .5, cv = Math.floor(v) + .5;
+    const cx = (cu * c - cv * c) * s, cy = (cu * c + cv * c) * s; // cell centre back in image space
+    const dark = 1 - at(cx, cy) / 255, r = Math.sqrt(dark / Math.PI); // radius in cell units: dot area = darkness
+    out[y * w + x] = Math.hypot(u - cu, v - cv) < r ? 1 : 0;
+  }
+  return out;
+}
+
+/* ---------- Source: camera, or a test scene ---------- */
+function size() { const W = +$('width').value, [a, b] = $('shape').value.split(':').map(Number); return [W, Math.round(W * b / a)]; }
+function testScene(t, W, H) {
+  const g = sctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, '#000'); g.addColorStop(1, '#fff');
+  sctx.fillStyle = g; sctx.fillRect(0, 0, W, H);
+  const r = sctx.createRadialGradient(W * .5, H * .45, 4, W * .5, H * .45, H * .42);
+  r.addColorStop(0, '#f4f4f4'); r.addColorStop(.7, '#777'); r.addColorStop(1, 'rgba(0,0,0,0)');
+  sctx.fillStyle = r; sctx.beginPath(); sctx.arc(W * .5 + Math.sin(t / 900) * W * .08, H * .45, H * .36, 0, Math.PI * 2); sctx.fill();
+  sctx.fillStyle = '#222'; sctx.font = `400 ${Math.round(H * .14)}px Anton`; sctx.textAlign = 'center'; sctx.fillText('SAY CHEESE', W / 2, H * .93);
+}
+function grab(t) {
+  const [W, H] = size(); if (src.width !== W || src.height !== H) { src.width = W; src.height = H; view.width = W; view.height = H; $('dims').textContent = `${W} × ${H} dots`; }
+  if (state.live && video.videoWidth) {
+    const vw = video.videoWidth, vh = video.videoHeight, target = W / H; let sw = vw, sh = vh, sx = 0, sy = 0;
+    if (vw / vh > target) { sw = vh * target; sx = (vw - sw) / 2; } else { sh = vw / target; sy = (vh - sh) / 2; }
+    sctx.save(); if (state.mirror) { sctx.translate(W, 0); sctx.scale(-1, 1); } sctx.drawImage(video, sx, sy, sw, sh, 0, 0, W, H); sctx.restore();
+  } else testScene(t, W, H);
+  // Grey with brightness and contrast
+  const d = sctx.getImageData(0, 0, W, H).data, g = new Float32Array(W * H), b = +$('bright').value, k = +$('contrast').value / 100;
+  for (let i = 0, j = 0; j < g.length; i += 4, j++) g[j] = Math.max(0, Math.min(255, ((0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) - 128) * k + 128 + b));
+  return { g, W, H };
+}
+function dither(t) {
+  const { g, W, H } = grab(t);
+  let bits = ALGOS[state.algo].fn(g, W, H);
+  if (state.invert) bits = bits.map(v => 1 - v);
+  return { bits, W, H, g };
+}
+function paint(ctx, { bits, W, H }) {
+  const img = ctx.createImageData(W, H), d = img.data;
+  for (let i = 0, j = 0; j < bits.length; i += 4, j++) { const v = bits[j] ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+  ctx.putImageData(img, 0, 0);
+}
+
+/* ---------- Live loop ---------- */
+let raf = 0;
+function loop(t) { if (!state.busy) paint(vctx, dither(t)); raf = requestAnimationFrame(loop); }
+async function camera() {
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 960 }, facingMode: 'user' }, audio: false });
+    video.srcObject = s; await video.play(); state.live = true; $('src').textContent = 'camera live';
+  } catch { $('src').textContent = 'no camera: showing a test scene'; }
+}
+
+/* ---------- Shots ---------- */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function countdown(n) { for (let i = n; i > 0; i--) { $('count').textContent = i; await sleep(700); } $('count').textContent = ''; }
+function flash() { $('flash').classList.remove('on'); void $('flash').offsetWidth; $('flash').classList.add('on'); }
+function frameToCanvas(f) { const c = document.createElement('canvas'); c.width = f.W; c.height = f.H; paint(c.getContext('2d'), f); return c; }
+async function takePhoto() {
+  if (state.busy) return; state.busy = true; setBusy(true);
+  await countdown(3); const f = dither(performance.now()); flash(); paint(vctx, f);
+  addShot(frameToCanvas(f), 'photo');
+  await sleep(500); state.busy = false; setBusy(false);
+}
+// A classic booth strip: four frames, a header and the date, all 1-bit
+async function takeStrip() {
+  if (state.busy) return; state.busy = true; setBusy(true);
+  const frames = [];
+  for (let k = 0; k < 4; k++) { await countdown(k ? 2 : 3); const f = dither(performance.now()); flash(); paint(vctx, f); frames.push(frameToCanvas(f)); await sleep(500); }
+  const W = frames[0].width, gap = Math.round(W * .04), head = Math.round(W * .2), foot = Math.round(W * .12);
+  const c = document.createElement('canvas'); c.width = W; c.height = head + frames.reduce((s, f) => s + f.height + gap, 0) + foot;
+  const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, c.height); x.fillStyle = '#000';
+  x.font = `400 ${Math.round(head * .62)}px Anton`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('PHOTO BOOTH', W / 2, head / 2);
+  let y = head; for (const f of frames) { x.drawImage(f, 0, y); y += f.height + gap; }
+  x.font = `700 ${Math.round(foot * .32)}px "Space Mono"`;
+  x.fillText(new Intl.DateTimeFormat(navigator.language || 'en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date()).toUpperCase(), W / 2, y + foot * .4);
+  // keep it strictly 1-bit after the text antialiasing
+  const img = x.getImageData(0, 0, W, c.height), d = img.data;
+  for (let i = 0; i < d.length; i += 4) { const v = d[i] < 128 ? 0 : 255; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+  x.putImageData(img, 0, 0);
+  addShot(c, 'strip');
+  state.busy = false; setBusy(false);
+}
+function setBusy(b) { $('snap').disabled = $('strip').disabled = b; }
+function addShot(canvas, kind) {
+  state.shots.unshift({ canvas, kind, url: canvas.toDataURL('image/png'), at: new Date() }); state.pick = 0;
+  renderShots();
+}
+function renderShots() {
+  $('shots').replaceChildren(...state.shots.map((s, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-pressed', String(i === state.pick));
+    b.setAttribute('aria-label', `${s.kind === 'strip' ? 'Photo strip' : 'Photo'} ${state.shots.length - i}, ${s.at.toLocaleTimeString()}`);
+    const im = new Image(); im.src = s.url; im.alt = ''; b.append(im); b.onclick = () => { state.pick = i; renderShots(); };
+    return b;
+  }));
+  $('print').disabled = $('save').disabled = state.pick < 0;
+  const s = state.shots[state.pick]; if (!s) return;
+  const mm = s.canvas.width >= 576 ? 72 : 48; // printable width of 80 / 58 mm paper
+  $('printout').src = s.url; document.documentElement.style.setProperty('--print-w', mm + 'mm');
+  $('pagesize').textContent = `@page { size: ${s.canvas.width >= 576 ? 80 : 58}mm ${Math.ceil(s.canvas.height / s.canvas.width * mm) + 8}mm; margin: 4mm ${(s.canvas.width >= 576 ? 8 : 10) / 2}mm; }`;
+}
+
+/* ---------- Controls ---------- */
+for (const [k, a] of Object.entries(ALGOS)) {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = a.label; b.dataset.v = k;
+  b.onclick = () => { state.algo = k; syncAlgo(); }; $('algo').append(b);
+}
+const syncAlgo = () => $('algo').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === state.algo)));
+const toggle = (id, key) => { state[key] = !state[key]; $(id).setAttribute('aria-pressed', String(state[key])); };
+$('mirror').onclick = () => toggle('mirror', 'mirror');
+$('invert').onclick = () => toggle('invert', 'invert');
+$('snap').onclick = takePhoto; $('strip').onclick = takeStrip;
+$('print').onclick = () => print();
+$('save').onclick = () => { const s = state.shots[state.pick]; s.canvas.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `dither-${s.kind}-${s.at.toISOString().slice(0, 19).replace(/:/g, '')}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }); };
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, select') || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === ' ') { e.preventDefault(); takePhoto(); }
+  if (e.key === 'p' || e.key === 'P') takeStrip();
+});
+syncAlgo(); camera(); raf = requestAnimationFrame(loop);
+</script>
+</body>
+</html>
