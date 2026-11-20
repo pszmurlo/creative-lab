@@ -173,7 +173,7 @@ async function place() {
   const slip = store.get('morning-slip', {});
   if (slip.place) return slip.place;
   const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' ');
-  const h = (await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(city)}`)).json()).results?.[0];
+  const h = (await (await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(city)}`, { signal: AbortSignal.timeout(8000) })).json()).results?.[0];
   if (!h) throw new Error('no city');
   const p = { name: h.name, lat: h.latitude, lon: h.longitude }; store.set('morning-slip', { ...slip, place: p }); return p;
 }
@@ -181,11 +181,12 @@ async function tickWeather() {
   if (!cfg.panels.weather) return;
   try {
     const p = await place();
-    const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`)).json();
+    const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1`, { signal: AbortSignal.timeout(8000) })).json();
     $('w-place').textContent = `${p.name === 'Here' ? 'Weather' : p.name} · now`;
     $('w-now').textContent = `${Math.round(j.current.temperature_2m)}° ${sky(j.current.weather_code)}`;
     $('w-sub').textContent = `Today ${Math.round(j.daily.temperature_2m_min[0])}° / ${Math.round(j.daily.temperature_2m_max[0])}° · rain ${j.daily.precipitation_probability_max[0] ?? 0}%`;
-  } catch (e) { $('w-now').textContent = '—'; $('w-sub').textContent = 'Weather unavailable'; }
+  // Every request gives up after 8 s, like Morning Slip, so a stalled network can't leave the panel waiting forever
+  } catch (e) { $('w-now').textContent = '—'; $('w-sub').textContent = e.name === 'TimeoutError' ? 'Weather unavailable (timed out)' : 'Weather unavailable'; }
 }
 
 /* ---------- Shared hour ---------- */
@@ -272,7 +273,7 @@ $('cityform').addEventListener('submit', async e => {
   btn.disabled = true;
   setCityStatus(`Looking up ${q}…`);
   try {
-    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`);
+    const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=1&name=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const j = await res.json();
     if (seq !== cityLookupSeq) return;
