@@ -27,7 +27,17 @@
   .strip button.has i { background: var(--fg); }
   .strip button[aria-current=date] { background: var(--fg); color: var(--bg); }
   .strip button[aria-current=date].has i { background: var(--bg); }
-  .strip button.today { border-color: var(--acc); }
+  /* Today: a red dot under the cell, so it still shows when today is also the page you're on (a red border vanished under that fill) */
+  .strip button.today { position: relative; }
+  .strip button.today::after { content: ''; position: absolute; left: 50%; bottom: -8px; translate: -50% 0; width: 5px; height: 5px; border-radius: 50%; background: var(--acc-text); }
+  @media (forced-colors: active) { .strip button.today::after { background: CanvasText; } }
+  /* Phones: 14 cells would be 22px wide, so the strip becomes a horizontal scroller of 44px cells, newest at the right */
+  @media (max-width: 560px) {
+    .strip { position: relative; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 44px; overflow-x: auto; overscroll-behavior-x: contain;
+             scroll-snap-type: x proximity; scrollbar-width: none; padding-bottom: 10px; margin-bottom: -10px; }
+    .strip::-webkit-scrollbar { display: none; }
+    .strip button { scroll-snap-align: end; min-block-size: 44px; font-size: 11px; }
+  }
 
   .banner { border: 2px solid var(--move); padding: 10px 12px; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .banner p { margin: 0; flex: 1; min-width: 200px; }
@@ -52,6 +62,9 @@
   .task input[type=checkbox] { width: 20px; height: 20px; accent-color: var(--acc); margin: 0; }
   .task label { overflow-wrap: anywhere; cursor: pointer; }
   .task.done label { text-decoration: line-through; color: var(--dim); }
+  /* Finished tasks stay put: no swipe and no → button, so the two ways of moving a task agree */
+  .task.done .mv { display: none; }
+  .task.done .track { overflow: clip; }
   .task small { display: block; color: var(--dim); font-size: 11px; }
   .task .acts { display: flex; gap: 4px; }
   .task .acts button { padding: 2px 8px; font-size: 14px; border-width: 1px; }
@@ -86,7 +99,7 @@
   <h2><label for="notes">Page</label><span id="words"></span></h2>
   <textarea id="notes" placeholder="Open it and type."></textarea>
 
-  <h2 id="todo-h">To do <span>swipe left or press → to move a task to tomorrow</span></h2>
+  <h2 id="todo-h">To do <span>swipe left or use the → button to move a task to tomorrow</span></h2>
   <ul class="tasks" id="tasks" role="list" aria-labelledby="todo-h"></ul>
   <form class="add" id="add"><label class="sr" for="newtask">New task</label><input id="newtask" placeholder="Add a task" autocomplete="off" maxlength="200"><button type="submit">Add</button></form>
   <p role="status" class="sr" id="status"></p>
@@ -132,15 +145,23 @@ function render() {
   if (document.activeElement !== $('notes')) $('notes').value = page.notes;
   words();
   // Two-week strip ending today (or the page you're on, if later)
-  const end = current > today ? current : today;
-  $('strip').replaceChildren(...Array.from({ length: 14 }, (_, i) => {
+  const end = current > today ? current : today, strip = $('strip'), keepX = strip.scrollLeft, hadCells = strip.childElementCount > 0;
+  strip.replaceChildren(...Array.from({ length: 14 }, (_, i) => {
     const k = shift(end, i - 13), b = document.createElement('button'), dd = parse(k);
     b.type = 'button'; b.className = (hasContent(k) ? 'has' : '') + (k === today ? ' today' : '');
     b.innerHTML = `<span>${new Intl.DateTimeFormat(lang, { weekday: 'narrow' }).format(dd)}</span><span>${dd.getDate()}</span><i></i>`;
-    b.setAttribute('aria-label', `${new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(dd)}${hasContent(k) ? ', written' : ''}`);
+    b.setAttribute('aria-label', `${new Intl.DateTimeFormat(lang, { weekday: 'long', day: 'numeric', month: 'long' }).format(dd)}${k === today ? ', today' : ''}${hasContent(k) ? ', written' : ''}`);
     if (k === current) b.setAttribute('aria-current', 'date');
     b.onclick = () => go(k); return b;
   }));
+  // Phone scroller: keep where it was (render runs while typing), but bring the current day into view.
+  // scrollLeft only, never scrollIntoView, which would also scroll the page
+  if (strip.scrollWidth > strip.clientWidth) {
+    const cur = strip.querySelector('[aria-current]');
+    let x = hadCells ? keepX : strip.scrollWidth;
+    if (cur) { const l = cur.offsetLeft, r = l + cur.offsetWidth; if (l < x) x = l; else if (r > x + strip.clientWidth) x = r - strip.clientWidth; }
+    strip.scrollLeft = x;
+  }
   renderTasks();
   banner();
   stats();

@@ -272,7 +272,8 @@ async function render() {
   await paint(data);
   if (!wantWeather || seq !== renderSeq) return;
   try { data.weather = await weather(cfg.place); data.weatherErr = ''; }
-  catch (e) { data.weatherErr = `Weather unavailable (${e.name === 'TimeoutError' ? 'timed out' : e.message}).`; }
+  // Plain words on the paper, never a raw "Failed to fetch"; kept under ~40 characters to fit one line at 58 mm
+  catch (e) { data.weatherErr = `Weather unavailable (${e.name === 'TimeoutError' ? 'timed out' : e instanceof TypeError || !navigator.onLine ? 'offline' : 'no forecast'})`; }
   if (seq === renderSeq) await paint(data);
 }
 async function paint(data) {
@@ -341,7 +342,12 @@ $('png').onclick = () => canvas?.toBlob(b => { if (!b) return; const a = documen
   // First visit: guess the city from the browser's time zone (Europe/Warsaw -> Warsaw); nothing is sent until then
   // Draw first so the slip never waits on the network
   render();
-  if (!cfg.place) { const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' '); if (city && city !== 'UTC' && await setPlace(city, { silent: true })) render(); }
+  if (!cfg.place) {
+    const city = Intl.DateTimeFormat().resolvedOptions().timeZone.split('/').pop().replace(/_/g, ' '), seq = lookupSeq + 1;
+    if (city && city !== 'UTC' && await setPlace(city, { silent: true })) render();
+    // The guess failed (offline, unknown zone or UTC): say how to set a city, unless a search the user started has taken over the status line
+    else if (!cfg.place && lookupSeq <= seq && !$('status').textContent) status('Couldn’t guess your city. Type one above or use your location.');
+  }
   if (cfg.place) $('q').value = cfg.place.name === 'Here' ? '' : cfg.place.name;
 })();
 </script>
