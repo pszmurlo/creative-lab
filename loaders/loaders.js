@@ -140,7 +140,7 @@ i { display: block; height: 100%; width: calc(100% + 40px); background: repeatin
     note: "The word types out one character per step, waits, then backspaces. The width moves in ch units, which only lines up in a monospace font.",
     html: `<div class="tw" role="progressbar" aria-label="Loading"><span>LOADING</span><b></b></div>`,
     css: `.tw { display: flex; align-items: center; gap: 2px; width: calc(7ch + 16px); font: 700 26px/1 "Space Mono", ui-monospace, monospace; letter-spacing: 0; color: var(--ink); }
-.tw span { width: 7ch; overflow: hidden; white-space: nowrap; animation: type 3s infinite; }
+.tw span { width: 7ch; overflow: hidden; white-space: nowrap; animation: type 3s -1.5s infinite; }
 .tw b { width: 14px; height: 28px; background: var(--acc); animation: blink .5s steps(1) infinite alternate; }
 @keyframes type {
   0% { width: 0; animation-timing-function: steps(7, end); }
@@ -149,7 +149,7 @@ i { display: block; height: 100%; width: calc(100% + 40px); background: repeatin
   100% { width: 0; }
 }
 @keyframes blink { 50% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .tw span { animation-duration: 12s; } .tw b { animation-duration: 2s; } }`
+@media (prefers-reduced-motion: reduce) { .tw span { animation-duration: 12s; animation-delay: -6s; } .tw b { animation-duration: 2s; } }`
   },
   {
     day: 14, name: "Morph", added: "2026-11-20",
@@ -186,20 +186,20 @@ i { display: block; height: 100%; width: calc(100% + 40px); background: repeatin
     css: `.ty { position: relative; display: flex; gap: 10px; height: 64px; padding: 0 6px; }
 .ty i { width: 6px; height: 100%; background: var(--ink); transform-origin: 50% 0; --s0: 1 0; }
 .ty b { position: absolute; left: 0; top: 50px; width: 72px; height: 6px; background: var(--acc); transform-origin: 0 50%; rotate: -34deg; --s0: 0 1; }
-.ty > * { animation: 3.2s cubic-bezier(.3, 0, .2, 1) infinite; }
+.ty > * { animation: 3.2s cubic-bezier(.3, 0, .2, 1) -1.9s infinite; }
 ${[0,1,2,3,4].map(k => `.ty > :nth-child(${k + 1}) { animation-name: m${k}; }
 @keyframes m${k} { 0%, ${6 + k * 9}% { scale: var(--s0); opacity: 1; } ${12 + k * 9}%, 80% { scale: 1; opacity: 1; } 88%, 100% { scale: 1; opacity: 0; } }`).join("\n")}
-@media (prefers-reduced-motion: reduce) { .ty > * { animation-duration: 12.8s; } }`
+@media (prefers-reduced-motion: reduce) { .ty > * { animation-duration: 12.8s; animation-delay: -7.6s; } }`
   },
   {
     day: 17, name: "Ripple", added: "2026-11-20",
     note: "Three rings leave the centre a third of a cycle apart. Each grows fast and fades slowly, like a drop landing in water.",
     html: `<div class="rp" role="progressbar" aria-label="Loading"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i></div>`,
     css: `.rp { position: relative; width: 100px; height: 100px; }
-.rp i { position: absolute; inset: 0; box-sizing: border-box; border: 4px solid var(--ink); border-radius: 50%; opacity: 0; animation: ring 1.8s cubic-bezier(.2, .6, .4, 1) calc(var(--i) * .6s) infinite; }
+.rp i { position: absolute; inset: 0; box-sizing: border-box; border: 4px solid var(--ink); border-radius: 50%; opacity: 0; animation: ring 1.8s cubic-bezier(.2, .6, .4, 1) calc(var(--i) * .6s - 1.8s) infinite; }
 .rp::after { content: ""; position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px; border-radius: 50%; background: var(--acc); }
 @keyframes ring { from { scale: .15; opacity: 1; } to { scale: 1; opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .rp i { animation-duration: 7.2s; animation-delay: calc(var(--i) * 2.4s); } }`
+@media (prefers-reduced-motion: reduce) { .rp i { animation-duration: 7.2s; animation-delay: calc(var(--i) * 2.4s - 7.2s); } }`
   },
   {
     day: 18, name: "Dominoes", added: "2026-11-20",
@@ -261,5 +261,110 @@ ${[0,1,2,3,4].map(k => `.ty > :nth-child(${k + 1}) { animation-name: m${k}; }
 .bc b { position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--acc); animation: scan 1.6s cubic-bezier(.45, 0, .55, 1) infinite alternate; }
 @keyframes scan { to { transform: translateY(61px); } }
 @media (prefers-reduced-motion: reduce) { .bc b { animation-duration: 6.4s; } }`
+  },
+  {
+    day: 23, name: "Roll", added: "2026-11-20",
+    note: "A square tips over its front corner, again and again, through a clipped window. The rotation resets each roll while the position jumps one square ahead with steps(), so the seam never shows.",
+    html: `<div class="rl" role="progressbar" aria-label="Loading"><div class="mv"><i></i></div></div>`,
+    css: `.rl { position: relative; width: 96px; height: 40px; overflow: hidden; border-bottom: 4px solid var(--ink); }
+.rl .mv { position: absolute; left: 0; bottom: 0; animation: travel 3s steps(5, end) -1.2s infinite; }
+.rl i { display: block; width: 24px; height: 24px; background: var(--acc); transform-origin: 100% 100%; animation: tip .6s cubic-bezier(.6, 0, .4, 1) infinite; }
+@keyframes travel { from { translate: -24px 0; } to { translate: 96px 0; } }
+@keyframes tip { from { rotate: 0deg; } to { rotate: 90deg; } }
+@media (prefers-reduced-motion: reduce) { .rl .mv { animation-duration: 12s; animation-delay: -4.8s; } .rl i { animation-duration: 2.4s; } }`
+  },
+  {
+    day: 24, name: "Trace", added: "2026-11-20",
+    note: "A heartbeat trace in inline SVG. pathLength=\"100\" makes the dash maths easy: a 30-unit dash with a 100-unit gap enters at the left and fully leaves at the right before the next one starts.",
+    html: `<div class="tr" role="progressbar" aria-label="Loading"><svg viewBox="0 0 120 60" width="144" height="72" aria-hidden="true"><path class="bg" d="M2 32 H30 L36 22 L42 32 H50 L56 6 L64 54 L70 32 H80 L86 24 L92 32 H118"/><path class="fg" pathLength="100" d="M2 32 H30 L36 22 L42 32 H50 L56 6 L64 54 L70 32 H80 L86 24 L92 32 H118"/></svg></div>`,
+    css: `.tr svg { display: block; overflow: visible; }
+.tr path { fill: none; stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+.tr .bg { stroke: var(--ink); opacity: .18; }
+.tr .fg { stroke: var(--acc); stroke-dasharray: 30 100; animation: trace 1.8s linear -.9s infinite; }
+@keyframes trace { from { stroke-dashoffset: 30; } to { stroke-dashoffset: -100; } }
+@media (prefers-reduced-motion: reduce) { .tr .fg { animation-duration: 7.2s; animation-delay: -3.6s; } }`
+  },
+  {
+    day: 25, name: "Slide puzzle", added: "2026-11-20",
+    note: "Three tiles and one hole. Every tile runs the same lap round the 2×2 board; offsetting each one by a different number of steps means only one moves at a time, always into the hole.",
+    html: `<div class="pz" role="progressbar" aria-label="Loading"><i style="--o:10"></i><i style="--o:2"></i><i style="--o:6"></i></div>`,
+    css: `.pz { position: relative; width: 64px; height: 64px; padding: 4px; border: 3px solid var(--ink); }
+.pz i { position: absolute; left: 4px; top: 4px; width: 30px; height: 30px; background: var(--ink); animation: lap 4.8s calc(var(--o) * -.4s) infinite; }
+.pz i:first-child { background: var(--acc); }
+@keyframes lap {
+  0% { translate: 0 0; animation-timing-function: cubic-bezier(.7, 0, .3, 1); }
+  5%, 25% { translate: 34px 0; animation-timing-function: cubic-bezier(.7, 0, .3, 1); }
+  30%, 50% { translate: 34px 34px; animation-timing-function: cubic-bezier(.7, 0, .3, 1); }
+  55%, 75% { translate: 0 34px; animation-timing-function: cubic-bezier(.7, 0, .3, 1); }
+  80%, 100% { translate: 0 0; }
+}
+@media (prefers-reduced-motion: reduce) { .pz i { animation-duration: 19.2s; animation-delay: calc(var(--o) * -1.6s); } }`
+  },
+  {
+    day: 26, name: "Eclipse", added: "2026-11-20",
+    note: "An ink moon crosses a red sun. The sun clips the moon with overflow: hidden, so you only see the bite; the ring stays lit at totality. It slows down through the middle.",
+    html: `<div class="ec" role="progressbar" aria-label="Loading"><div class="sun"><i></i></div></div>`,
+    css: `.ec { width: 72px; height: 72px; padding: 6px; border: 3px solid var(--acc); border-radius: 50%; }
+.ec .sun { width: 100%; height: 100%; border-radius: 50%; background: var(--acc); overflow: hidden; }
+.ec i { display: block; width: 100%; height: 100%; border-radius: 50%; background: var(--ink); animation: pass 3s infinite; }
+@keyframes pass {
+  0% { translate: -105% 0; animation-timing-function: cubic-bezier(.2, .6, .5, 1); }
+  50% { translate: 0 0; animation-timing-function: cubic-bezier(.5, 0, .8, .4); }
+  100% { translate: 105% 0; }
+}
+@media (prefers-reduced-motion: reduce) { .ec i { animation-duration: 12s; } }`
+  },
+  {
+    day: 27, name: "Seesaw", added: "2026-11-20",
+    note: "A plank rocks on a pivot and the ball rolls to whichever end is down. The ball is a child of the plank, so it only has to move along it.",
+    html: `<div class="ss" role="progressbar" aria-label="Loading"><div class="p"><i></i></div><b></b></div>`,
+    css: `.ss { position: relative; width: 130px; height: 72px; }
+.ss .p { position: absolute; left: 0; right: 0; top: 34px; height: 6px; background: var(--ink); animation: tilt 1.8s cubic-bezier(.45, 0, .55, 1) infinite alternate; }
+.ss i { position: absolute; left: 4px; bottom: 100%; width: 18px; height: 18px; border-radius: 50%; background: var(--acc); animation: along 1.8s cubic-bezier(.6, 0, .4, 1) infinite alternate; }
+.ss b { position: absolute; left: 50%; top: 40px; margin-left: -16px; border: 0 solid transparent; border-width: 0 16px 28px; border-bottom-color: var(--ink); }
+@keyframes tilt { from { rotate: -14deg; } to { rotate: 14deg; } }
+@keyframes along { from { translate: 0 0; } to { translate: 104px 0; } }
+@media (prefers-reduced-motion: reduce) { .ss .p, .ss i { animation-duration: 7.2s; } }`
+  },
+  {
+    day: 28, name: "Ticker", added: "2026-11-20",
+    note: "A news-ticker band. The text is repeated four times and the strip moves by exactly half its width, which lands on an identical frame.",
+    html: `<div class="tk" role="progressbar" aria-label="Loading"><div aria-hidden="true">${"<span>Loading<b></b></span>".repeat(4)}</div></div>`,
+    css: `.tk { width: 150px; overflow: hidden; padding: 8px 0; border-block: 3px solid var(--ink); }
+.tk div { display: flex; width: max-content; animation: run 2.4s linear infinite; }
+.tk span { display: flex; align-items: center; gap: 12px; padding-right: 12px; font: 400 28px/1 "Anton", Impact, sans-serif; color: var(--ink); text-transform: uppercase; white-space: nowrap; }
+.tk b { width: 12px; height: 12px; background: var(--acc); }
+@keyframes run { to { translate: -50% 0; } }
+@media (prefers-reduced-motion: reduce) { .tk div { animation-duration: 9.6s; } }`
+  },
+  {
+    day: 29, name: "Nested", added: "2026-11-20",
+    note: "Three squares click round a quarter turn at a time, the middle one against the others. A square turned 90° looks the same, so each click is a fresh start.",
+    html: `<div class="ns" role="progressbar" aria-label="Loading"><i></i><i></i><i></i></div>`,
+    css: `.ns { display: grid; place-items: center; width: 84px; height: 84px; }
+.ns i { grid-area: 1 / 1; box-sizing: border-box; border: 5px solid var(--ink); animation: q 1.6s cubic-bezier(.7, 0, .3, 1) infinite; }
+.ns i:nth-child(1) { width: 84px; height: 84px; }
+.ns i:nth-child(2) { width: 54px; height: 54px; animation-direction: reverse; animation-delay: .12s; }
+.ns i:nth-child(3) { width: 24px; height: 24px; background: var(--acc); border-color: var(--acc); animation-delay: .24s; }
+@keyframes q { 0% { rotate: 0deg; } 60%, 100% { rotate: 90deg; } }
+@media (prefers-reduced-motion: reduce) { .ns i { animation-duration: 6.4s; } .ns i:nth-child(2) { animation-delay: .48s; } .ns i:nth-child(3) { animation-delay: .96s; } }`
+  },
+  {
+    day: 30, name: "Calendar", added: "2026-11-20",
+    note: "Thirty days, one cell each, the last one red. A mask cuts the layers into cells; done rows grow with steps(6) and the current row with steps(5), like the counter's digits but in two dimensions.",
+    html: `<div class="cal" role="progressbar" aria-label="Loading"><i class="done"></i><div class="row"><i class="bar"></i><i class="mk"></i></div></div>`,
+    css: `.cal { position: relative; width: 96px; height: 116px; overflow: hidden;
+  mask: linear-gradient(90deg, black 16px, transparent 0) 0 0 / 20px 20px, linear-gradient(black 16px, transparent 0) 0 0 / 20px 20px; mask-composite: intersect; }
+.cal::before { content: ""; position: absolute; inset: 0; background: var(--ink); opacity: .15; }
+.cal i { position: absolute; left: 0; top: 0; background: var(--ink); }
+.cal .done { width: 100%; height: 120px; transform-origin: 0 0; animation: rows 4.5s steps(6, end) infinite; }
+.cal .row { position: absolute; left: 0; top: 0; width: 100px; height: 20px; animation: down 4.5s steps(6, end) infinite; }
+.cal .bar { width: 100px; height: 20px; transform-origin: 0 0; animation: cells .75s steps(5, end) infinite; }
+.cal .mk { width: 20px; height: 20px; background: var(--acc); animation: hop .75s steps(5, end) infinite; }
+@keyframes rows { from { scale: 1 0; } to { scale: 1 1; } }
+@keyframes down { to { translate: 0 120px; } }
+@keyframes cells { from { scale: 0 1; } to { scale: 1 1; } }
+@keyframes hop { to { translate: 100px 0; } }
+@media (prefers-reduced-motion: reduce) { .cal .done, .cal .row { animation-duration: 18s; } .cal .bar, .cal .mk { animation-duration: 3s; } }`
   }
 ];
