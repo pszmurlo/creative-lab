@@ -12,13 +12,13 @@
   @media (prefers-color-scheme: dark) {
     :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
   }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); font-size-adjust: from-font; }
   .wrap { max-width: 1100px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 40px;
           grid-template-columns: minmax(0, 1fr) minmax(0, 420px); align-items: start; }
   @media (max-width: 820px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
   @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
-  h1 { font: 400 clamp(56px, 9vw, 112px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
+  h1 { font: 400 clamp(56px, 9vw, 112px)/.85 var(--display); font-size-adjust: cap-height from-font; text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 24px; max-width: 52ch; }
   form, fieldset { display: grid; gap: 8px; margin: 0 0 18px; border: 0; padding: 0; }
@@ -151,12 +151,23 @@ const PROMPTS = [
 const promptFor = d => PROMPTS[(Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5) * 7) % PROMPTS.length];
 
 /* ---------- Drawing the receipt (canvas, then 1-bit) ---------- */
+const FONTS = {
+  'Space Mono': '"Space Mono", ui-monospace, Menlo, monospace',
+  'Anton': '"Anton", Impact, "Arial Narrow", sans-serif',
+};
+const fontsReady = document.fonts?.load
+  ? Promise.race([
+      Promise.allSettled(['400 40px "Anton"', '700 16px "Space Mono"', '400 16px "Space Mono"'].map(f => document.fonts.load(f))),
+      new Promise(r => setTimeout(r, 1500)),
+    ])
+  : Promise.resolve();
+
 function draw(data) {
   const W = cfg.paper == 80 ? 576 : 384, M = Math.round(W * .05), k = W / 384;
   const c = document.createElement('canvas'); c.width = W; c.height = 4000;
   const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, W, c.height); x.fillStyle = '#000'; x.strokeStyle = '#000';
   let y = M;
-  const font = (sz, fam = 'Space Mono', wt = 400) => x.font = `${wt} ${Math.round(sz * k)}px "${fam}"`;
+  const font = (sz, fam = 'Space Mono', wt = 400) => x.font = `${wt} ${Math.round(sz * k)}px ${FONTS[fam] || fam}`;
   const text = (t, sz, opts = {}) => {
     font(sz, opts.fam, opts.wt); x.textAlign = opts.align || 'left'; x.textBaseline = 'alphabetic';
     const tx = opts.align === 'center' ? W / 2 : opts.align === 'right' ? W - M : M;
@@ -246,7 +257,7 @@ function drawIcon(x, kind, ox, oy, s, k) {
   if (kind === 'part') { sun(s * .62, s * .32, s * .13); cloud(s * .72); }
   if (kind === 'cloud' || kind === 'rain' || kind === 'snow' || kind === 'storm') cloud(s * .55);
   if (kind === 'rain') for (let i = 0; i < 3; i++) { x.beginPath(); x.moveTo(s * (.32 + i * .16), s * .66); x.lineTo(s * (.28 + i * .16), s * .84); x.stroke(); }
-  if (kind === 'snow') for (let i = 0; i < 3; i++) { x.font = `700 ${Math.round(s * .2)}px "Space Mono"`; x.fillText('*', s * (.26 + i * .17), s * .9); }
+  if (kind === 'snow') for (let i = 0; i < 3; i++) { x.font = `700 ${Math.round(s * .2)}px ${FONTS['Space Mono']}`; x.fillText('*', s * (.26 + i * .17), s * .9); }
   if (kind === 'storm') { x.beginPath(); x.moveTo(s * .52, s * .6); x.lineTo(s * .42, s * .78); x.lineTo(s * .54, s * .78); x.lineTo(s * .44, s * .96); x.stroke(); }
   if (kind === 'fog') for (let i = 0; i < 4; i++) { x.beginPath(); x.moveTo(s * (.15 + (i % 2) * .08), s * (.3 + i * .14)); x.lineTo(s * (.85 - (i % 2) * .08), s * (.3 + i * .14)); x.stroke(); }
   x.restore();
@@ -259,7 +270,7 @@ async function render() {
   if (cfg.sections.weather && cfg.place) {
     try { data.weather = await weather(cfg.place); } catch (e) { data.weatherErr = `Weather unavailable (${e.message}).`; }
   }
-  await document.fonts.load('400 40px "Anton"'); await document.fonts.load('700 16px "Space Mono"'); await document.fonts.load('400 16px "Space Mono"');
+  await fontsReady;
   canvas = draw(data);
   $('out').src = canvas.toDataURL('image/png');
   $('out').alt = `Receipt for ${new Date().toDateString()}${data.weather ? `, ${Math.round(data.weather.min)} to ${Math.round(data.weather.max)} degrees in ${cfg.place.name}` : ''}, ${data.habits.length} habits.`;
@@ -283,7 +294,7 @@ $('geo').onclick = () => {
 $('paper').value = cfg.paper; $('paper').onchange = e => { cfg.paper = +e.target.value; save(); render(); };
 document.querySelectorAll('[data-s]').forEach(cb => { cb.checked = cfg.sections[cb.dataset.s] !== false; cb.onchange = () => { cfg.sections[cb.dataset.s] = cb.checked; save(); render(); }; });
 $('print').onclick = () => print();
-$('png').onclick = () => canvas.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `morning-slip-${dayKey(new Date())}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
+$('png').onclick = () => canvas?.toBlob(b => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `morning-slip-${dayKey(new Date())}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
 
 (async () => {
   // First visit: guess the city from the browser's time zone (Europe/Warsaw -> Warsaw); nothing is sent until then
