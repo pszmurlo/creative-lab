@@ -40,9 +40,11 @@
   .count { margin: 0 0 16px; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
   .wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
   @media (max-width: 480px) { .wall { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; } } /* two posters per row, not 43 full-width ones */
-  .wall figure { margin: 0; cursor: zoom-in; }
+  .wall figure { margin: 0; }
+  /* Each poster is a plain button: no chrome, so the global button fill and hover inversion don't apply */
+  .wall .poster { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
   .wall canvas { width: 100%; height: auto; display: block; box-shadow: 0 1px 0 rgba(0,0,0,.15), 4px 6px 0 rgba(0,0,0,.12); transition: transform .15s; }
-  @media (hover: hover) and (pointer: fine) { .wall figure:hover canvas { transform: translateY(-3px) rotate(-.4deg); } }
+  @media (hover: hover) and (pointer: fine) { .wall .poster:hover canvas { transform: translateY(-3px) rotate(-.4deg); } }
   .wall figcaption { margin-top: 6px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: 96vw; width: fit-content; overscroll-behavior: contain; }
   dialog::backdrop { background: rgba(10,10,10,.75); overflow: hidden; overscroll-behavior: contain; }
@@ -75,7 +77,7 @@
     .lb canvas { height: min(52svh, calc((96vw - 6px) * 1.4142)); width: auto; max-width: 100%; margin-inline: auto; }
     .lb aside { border-left: 0; border-top: 3px solid var(--line); padding: 14px; }
   }
-  .wall figure:active canvas { transform: scale(.98); }
+  .wall .poster:active { transform: scale(.98); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) { .wall canvas { transition: none; } }
 
@@ -156,15 +158,14 @@ function renderWall() {
   wall.textContent = '';
   const dpr = Math.min(devicePixelRatio || 1, 2);
   items.forEach((item, i) => {
-    const fig = document.createElement('figure'); fig.tabIndex = 0; fig.role = 'button';
+    const fig = document.createElement('figure'), btn = document.createElement('button'); btn.type = 'button'; btn.className = 'poster';
     const cv = document.createElement('canvas');
     const px = 320 * dpr; cv.width = px; cv.height = Math.round(px * H / W);
     const c = render(cv, item, i, px / W);
-    cv.setAttribute('aria-label', `Poster of a post by ${item.name}: ${clean(item.text)}`);
+    btn.setAttribute('aria-label', `Poster of a post by ${item.name}: ${clean(item.text)}`);
     const cap = document.createElement('figcaption'); cap.textContent = `${c.layout} · ${c.inkName} · @${item.handle}`;
-    fig.append(cv, cap);
-    fig.onclick = () => openLb(i);
-    fig.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLb(i); } };
+    btn.append(cv); fig.append(btn, cap);
+    btn.onclick = () => openLb(i);
     wall.append(fig);
   });
   document.getElementById('count').textContent = `${items.length} posters from your bookmarks · captured ${(window.BOOKMARKS_CAPTURED || '').split('-').reverse().join('.')}`;
@@ -196,8 +197,6 @@ const step = d => { current = (current + d + items.length) % items.length; drawB
 document.getElementById('lbPrev').onclick = () => step(-1);
 document.getElementById('lbNext').onclick = () => step(1);
 document.getElementById('lbReroll').onclick = () => { items[current].seed++; items[current].layout = null; items[current].ink = null; drawBig(); refreshThumb(); };
-// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
-if (!('commandForElement' in HTMLButtonElement.prototype)) document.getElementById('lbClose').onclick = () => lb.close();
 document.getElementById('lbSave').onclick = () => {
   const out = document.createElement('canvas'); out.width = 2000; out.height = Math.round(2000 * H / W);
   render(out, items[current], current, 2000 / W);
@@ -216,14 +215,6 @@ lb.addEventListener('keydown', e => {
   if (k === 's') document.getElementById('lbSave').click();
   if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') step(e.key === 'ArrowRight' ? 1 : -1);
 });
-// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
-// so a text-selection drag that ends on the backdrop doesn't close the dialog
-if (!('closedBy' in HTMLDialogElement.prototype)) {
-  const outside = e => { const r = lb.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
-  let pressedOutside = false;
-  lb.addEventListener('pointerdown', e => { pressedOutside = outside(e); });
-  lb.addEventListener('pointerup', e => { if (pressedOutside && outside(e)) lb.close(); });
-}
 
 // ---------- toolbar ----------
 const pal = document.getElementById('palette');

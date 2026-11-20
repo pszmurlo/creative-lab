@@ -424,16 +424,6 @@ $('rec').onclick = startRecording;
 $('dlGif').onclick = () => saveBlob(lastClip.gif, 'ascii-clip.gif');
 $('dlVideo').onclick = () => saveBlob(lastClip.video, `ascii-clip.${lastClip.video.type.includes('mp4') ? 'mp4' : 'webm'}`);
 $('dlSh').onclick = () => saveBlob(lastClip.sh, 'ascii-clip.sh');
-// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
-if (!('commandForElement' in HTMLButtonElement.prototype)) $('clipClose').onclick = () => $('clip').close();
-// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
-// so a text-selection drag that ends on the backdrop doesn't close the dialog
-if (!('closedBy' in HTMLDialogElement.prototype)) {
-  const outside = e => { const r = $('clip').getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
-  let pressedOutside = false;
-  $('clip').addEventListener('pointerdown', e => { pressedOutside = outside(e); });
-  $('clip').addEventListener('pointerup', e => { if (pressedOutside && outside(e)) $('clip').close(); });
-}
 
 resize(); startCamera(); start();
 </script>
