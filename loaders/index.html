@@ -21,9 +21,6 @@
   .count { font: 400 clamp(32px, 5vw, 56px)/1 var(--display); }
   .count small { font: 13px var(--mono); color: var(--dim); }
   .lede { color: var(--dim); max-width: 60ch; margin: 0 0 24px; }
-  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
-           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
-  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
 
   .grid { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); }
   .tile { display: grid; grid-template-rows: 1fr auto; aspect-ratio: 1; width: 100%; padding: 0; text-align: left;
