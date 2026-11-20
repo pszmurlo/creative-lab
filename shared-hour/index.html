@@ -9,15 +9,15 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
   /* Layout: the dial (24-hour clock with one ring per person) beside the list of people; stacks on narrow screens */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed; --sleep: rgb(17 17 17 / .08);
+  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed; --sleep: rgb(17 17 17 / .08);
           --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; --sleep: rgb(242 240 235 / .08); color-scheme: dark; }
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; --sleep: rgb(242 240 235 / .08); color-scheme: dark; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
   .wrap { max-width: 1240px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
   header { border-bottom: 3px solid var(--line); padding-bottom: 16px; margin: 14px 0 24px; display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: end; justify-content: space-between; }
   h1 { font: 400 clamp(56px, 10vw, 124px)/.85 var(--display); text-transform: uppercase; margin: 0; }
   h1 span { color: var(--acc); }

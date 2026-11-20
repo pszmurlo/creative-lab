@@ -7,13 +7,13 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
   /* Layout: a single column page per day. Header (date, nav, day strip), carry-over banner, notes, to-dos, footer tools. */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed; --move: #2f6df6;
+  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed; --move: #2f6df6;
           --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; } }
+  @media (prefers-color-scheme: dark) { :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; color-scheme: dark; } }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.6 var(--mono); }
   .wrap { max-width: 760px; margin: 0 auto; padding: 28px max(16px, 4vw) 72px; }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
   header { border-bottom: 3px solid var(--line); padding-bottom: 14px; margin: 14px 0 18px; }
   .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
   h1 { font: 400 clamp(52px, 13vw, 112px)/.85 var(--display); text-transform: uppercase; margin: 0; }

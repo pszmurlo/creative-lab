@@ -7,17 +7,17 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
   /* Layout: setup (controls beside a preview of what the camera will catch); Run covers the screen in black and plays the image one slice at a time */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #6b6862; --line: #111; --acc: #ff3b1f; --field: #f4f2ed;
+  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed;
           --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c; color-scheme: dark; }
+    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; color-scheme: dark; }
   }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); font-size-adjust: from-font; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 32px;
           grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
   @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
   .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc); } }
+  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
   h1 { font: 400 clamp(52px, 8vw, 104px)/.85 var(--display); font-size-adjust: cap-height from-font; text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 22px; }
@@ -31,7 +31,7 @@
            border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; display: inline-block; }
   @media (hover: hover) and (pointer: fine) { button:hover, .file:hover { background: var(--fg); color: var(--bg); } }
   button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
-  button.primary { background: var(--acc); border-color: var(--acc); color: #fff; font-size: 16px; padding: 14px 22px; }
+  button.primary { background: #c2210b; border-color: #c2210b; color: #fff; font-size: 16px; padding: 14px 22px; }
   .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
   .file:focus-within { outline: 3px solid var(--acc); outline-offset: 2px; }
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
