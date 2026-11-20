@@ -9,51 +9,44 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo+Black&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../lab.css">
 <style>
   /* Layout: print-shop wall. Toolbar on top, posters pinned in a dense grid, one lightbox for the close-up */
-  :root {
-    --bg: #e9e6df;
-    --fg: #111111;
-    --dim: #57544f;
-    --line: #111111;
-    --accent: #ff3b1f;
-    --card: #f6f4ef;
-    --mono: "Space Mono", ui-monospace, Menlo, monospace;
-    --display: "Anton", Impact, "Arial Narrow", sans-serif;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --card: #1f1f1d; color-scheme: dark; }
-  }
+  :root { --field: #f6f4ef; --display: "Anton", Impact, "Arial Narrow", sans-serif; }
+  @media (prefers-color-scheme: dark) { :root { --field: #1f1f1d; } }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.5 var(--mono); }
   header {
     display: flex; flex-wrap: wrap; gap: 16px 28px; align-items: end; justify-content: space-between;
     padding: 28px max(16px, 3vw) 20px; border-bottom: 3px solid var(--line);
   }
+  .back + h1 { margin-top: 10px; }
   h1 { margin: 0; font: 400 clamp(48px, 9vw, 112px)/.85 var(--display); text-transform: uppercase; letter-spacing: -.01em; }
-  h1 span { color: var(--accent); }
+  h1 span { color: var(--acc); }
   .sub { margin: 8px 0 0; color: var(--dim); max-width: 46ch; }
   .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field > span { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
   select, input[type=text], button {
-    font: 700 12px var(--mono); color: var(--fg); background: var(--card);
+    font: 700 12px var(--mono); color: var(--fg); background: var(--field);
     border: 2px solid var(--line); border-radius: 0; padding: 8px 10px;
   }
   input[type=text] { width: min(320px, 70vw); font-weight: 400; }
   button { cursor: pointer; text-transform: uppercase; letter-spacing: .06em; }
   @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
-  button.primary { background: var(--accent); color: #111; border-color: var(--line); }
-  @media (hover: hover) and (pointer: fine) { button.primary:hover { background: var(--fg); color: var(--bg); } }
-  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  @media (hover: hover) and (pointer: fine) { button.primary:hover { background: var(--fg); border-color: var(--fg); color: var(--bg); } }
   main { padding: 24px max(16px, 3vw) 64px; }
   .count { margin: 0 0 16px; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
   .wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-  .wall figure { margin: 0; cursor: zoom-in; }
+  @media (max-width: 480px) { .wall { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; } } /* two posters per row, not 43 full-width ones */
+  .wall figure { margin: 0; }
+  /* Each poster is a plain button: no chrome, so the global button fill and hover inversion don't apply */
+  .wall .poster { display: block; width: 100%; padding: 0; border: 0; background: none; cursor: zoom-in; }
   .wall canvas { width: 100%; height: auto; display: block; box-shadow: 0 1px 0 rgba(0,0,0,.15), 4px 6px 0 rgba(0,0,0,.12); transition: transform .15s; }
-  @media (hover: hover) and (pointer: fine) { .wall figure:hover canvas { transform: translateY(-3px) rotate(-.4deg); } }
+  @media (hover: hover) and (pointer: fine) { .wall .poster:hover canvas { transform: translateY(-3px) rotate(-.4deg); } }
   .wall figcaption { margin-top: 6px; font-size: 11px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: min(1100px, 96vw); width: 100%; overscroll-behavior: contain; }
+  dialog { border: 3px solid var(--line); padding: 0; background: var(--bg); color: var(--fg); max-width: 96vw; width: fit-content; overscroll-behavior: contain; }
   dialog::backdrop { background: rgba(10,10,10,.75); overflow: hidden; overscroll-behavior: contain; }
   /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion.
      The exit only runs where the dialog can stay in the top layer while it fades (overlay); elsewhere it closes at once */
@@ -67,33 +60,33 @@
     @starting-style { dialog[open] { scale: .96; } }
     @supports (overlay: auto) { dialog:not([open]) { scale: .96; } }
   }
-  .lb { display: grid; grid-template-columns: minmax(0, 1fr) 260px; }
-  .lb canvas { width: 100%; height: auto; display: block; max-height: 86svh; object-fit: contain; background: #000; }
+  /* The dialog sizes to the poster: height-led canvas plus a fixed control column, no letterbox */
+  .lb { display: grid; grid-template-columns: auto 260px; }
+  /* Width from the poster's 1:√2 ratio: with width:auto the canvas reports its 1400px bitmap and the dialog stretches */
+  .lb canvas { display: block; height: min(86svh, 1414px); width: calc(min(86svh, 1414px) / 1.4142); max-width: calc(96vw - 266px); object-fit: contain; }
   .lb aside { padding: 20px; display: flex; flex-direction: column; gap: 10px; border-left: 3px solid var(--line); }
-  .lb aside h2 { margin: 0 0 6px; font: inherit; color: var(--dim); }
-  .lb aside p { margin: 0 0 6px; color: var(--dim); }
+  .lb .top { display: flex; gap: 10px; align-items: start; justify-content: space-between; }
+  .lb aside h2 { margin: 0; font: inherit; color: var(--dim); }
+  .lb .acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .lb aside p { margin: 0; color: var(--dim); }
   .lb aside a { color: var(--fg); }
-  @media (max-width: 720px) { .lb { grid-template-columns: 1fr; } .lb aside { border-left: 0; border-top: 3px solid var(--line); } }
-  .wall figure:active canvas { transform: scale(.98); }
+  .lb .keys { font-size: 11px; }
+  /* Phone: poster above, controls below, all on one screen so Close never needs a scroll */
+  @media (max-width: 720px) {
+    .lb { grid-template-columns: 1fr; }
+    .lb canvas { height: min(52svh, calc((96vw - 6px) * 1.4142)); width: auto; max-width: 100%; margin-inline: auto; }
+    .lb aside { border-left: 0; border-top: 3px solid var(--line); padding: 14px; }
+  }
+  .wall .poster:active { transform: scale(.98); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (prefers-reduced-motion: reduce) { .wall canvas { transition: none; } }
 
-  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a, .btn, summary { touch-action: manipulation; }
-  button, .btn, summary { -webkit-user-select: none; user-select: none; }
-  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active, .btn:active { transform: scale(.97); }
-  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
-  @media (pointer: coarse) {
-    input, select, textarea { font-size: 16px !important; }
-    button, .btn { min-block-size: 44px; }
-  }
 </style>
 </head>
 <body>
 <header>
   <div>
+    <a class="back" href="../">← Creative Lab</a>
     <h1>Poster<br>Machine<span>.</span></h1>
     <p class="sub">Your X bookmarks, reprinted as brutalist posters. Click one to rework it or save it as a PNG.</p>
   </div>
@@ -132,14 +125,21 @@
   <div class="lb">
     <canvas id="big" width="1000" height="1414"></canvas>
     <aside>
-      <h2 id="lbMeta"></h2>
-      <button type="button" id="lbLayout" title="Next layout (L)">Next layout</button>
-      <button type="button" id="lbInk" title="Next ink (P)">Next ink</button>
-      <button type="button" id="lbReroll" title="Reroll (R)">Reroll</button>
-      <button type="button" class="primary" id="lbSave" title="Save PNG (S)">Save PNG</button>
+      <div class="top">
+        <h2 id="lbMeta"></h2>
+        <button type="button" id="lbClose" command="close" commandfor="lightbox">Close</button>
+      </div>
+      <div class="acts">
+        <button type="button" id="lbPrev" aria-label="Previous poster">← Prev</button>
+        <button type="button" id="lbNext" aria-label="Next poster">Next →</button>
+        <button type="button" id="lbLayout">Next layout</button>
+        <button type="button" id="lbInk">Next ink</button>
+        <button type="button" id="lbReroll">Reroll</button>
+        <button type="button" class="primary" id="lbSave">Save PNG</button>
+      </div>
       <p><a id="lbLink" href="#" target="_blank" rel="noopener">Open the post on X</a></p>
+      <p class="keys kbd-hint">Keys: ← → poster · L layout · P ink · R reroll · S save</p>
       <span class="sr" role="status" id="lbStatus"></span>
-      <button type="button" id="lbClose" command="close" commandfor="lightbox">Close</button>
     </aside>
   </div>
 </dialog>
@@ -158,15 +158,14 @@ function renderWall() {
   wall.textContent = '';
   const dpr = Math.min(devicePixelRatio || 1, 2);
   items.forEach((item, i) => {
-    const fig = document.createElement('figure'); fig.tabIndex = 0; fig.role = 'button';
+    const fig = document.createElement('figure'), btn = document.createElement('button'); btn.type = 'button'; btn.className = 'poster';
     const cv = document.createElement('canvas');
     const px = 320 * dpr; cv.width = px; cv.height = Math.round(px * H / W);
     const c = render(cv, item, i, px / W);
-    cv.setAttribute('aria-label', `Poster of a post by ${item.name}: ${clean(item.text)}`);
+    btn.setAttribute('aria-label', `Poster of a post by ${item.name}: ${clean(item.text)}`);
     const cap = document.createElement('figcaption'); cap.textContent = `${c.layout} · ${c.inkName} · @${item.handle}`;
-    fig.append(cv, cap);
-    fig.onclick = () => openLb(i);
-    fig.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLb(i); } };
+    btn.append(cv); fig.append(btn, cap);
+    btn.onclick = () => openLb(i);
     wall.append(fig);
   });
   document.getElementById('count').textContent = `${items.length} posters from your bookmarks · captured ${(window.BOOKMARKS_CAPTURED || '').split('-').reverse().join('.')}`;
@@ -194,9 +193,10 @@ function cycle(key, list) {
 }
 document.getElementById('lbLayout').onclick = () => cycle('layout', LAYOUTS);
 document.getElementById('lbInk').onclick = () => cycle('ink', Object.keys(INKS));
+const step = d => { current = (current + d + items.length) % items.length; drawBig(); };
+document.getElementById('lbPrev').onclick = () => step(-1);
+document.getElementById('lbNext').onclick = () => step(1);
 document.getElementById('lbReroll').onclick = () => { items[current].seed++; items[current].layout = null; items[current].ink = null; drawBig(); refreshThumb(); };
-// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
-if (!('commandForElement' in HTMLButtonElement.prototype)) document.getElementById('lbClose').onclick = () => lb.close();
 document.getElementById('lbSave').onclick = () => {
   const out = document.createElement('canvas'); out.width = 2000; out.height = Math.round(2000 * H / W);
   render(out, items[current], current, 2000 / W);
@@ -213,16 +213,8 @@ lb.addEventListener('keydown', e => {
   if (k === 'p') document.getElementById('lbInk').click();
   if (k === 'r') document.getElementById('lbReroll').click();
   if (k === 's') document.getElementById('lbSave').click();
-  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { current = (current + (e.key === 'ArrowRight' ? 1 : -1) + items.length) % items.length; drawBig(); }
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') step(e.key === 'ArrowRight' ? 1 : -1);
 });
-// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
-// so a text-selection drag that ends on the backdrop doesn't close the dialog
-if (!('closedBy' in HTMLDialogElement.prototype)) {
-  const outside = e => { const r = lb.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
-  let pressedOutside = false;
-  lb.addEventListener('pointerdown', e => { pressedOutside = outside(e); });
-  lb.addEventListener('pointerup', e => { if (pressedOutside && outside(e)) lb.close(); });
-}
 
 // ---------- toolbar ----------
 const pal = document.getElementById('palette');

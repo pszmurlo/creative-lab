@@ -5,45 +5,59 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07090a">
 <title>ASCII Mirror</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../lab.css">
 <style>
-  /* Layout: full-bleed phosphor screen, one floating control strip at the bottom */
-  :root {
-    --bg: #07090a;
-    --panel: rgba(16, 20, 19, 0.82);
-    --line: #22302b;
-    --fg: #cfe9dd;
-    --dim: #6f8a7f;
-    --accent: #7dffb2;
-    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
-    color-scheme: dark;
-  }
+  /* Layout: the full-bleed phosphor screen is the artwork; the lab's paper-and-ink chrome floats over it:
+     a status chip top left, one control strip at the bottom (compact on phones), a backed toast top right */
+  :root { --glyph: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace; --screen: #07090a; --rec: #c2210b; }
   * { box-sizing: border-box; }
-  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.4 var(--mono); overflow: hidden; overscroll-behavior: none; }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { background: var(--screen); font-size: 13px; }
   canvas#screen { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* Chrome panels are solid paper (or dark paper), so labels keep their contrast over any palette, Paper included */
+  .panel { background: var(--bg); color: var(--fg); border: 2px solid var(--line); }
   .bar {
     position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%);
-    display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: center;
-    max-width: calc(100% - 32px);
-    padding: 10px 14px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    backdrop-filter: blur(8px); transition: opacity 150ms cubic-bezier(0.23, 1, 0.32, 1); /* shows fast */
+    display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; justify-content: center;
+    width: max-content; max-width: calc(100% - 32px); padding: 10px 12px;
+    transition: opacity 150ms cubic-bezier(0.23, 1, 0.32, 1); /* shows fast */
   }
   .bar.idle { opacity: 0; transition: opacity 600ms ease; pointer-events: none; } /* hides slowly; can't be tapped while invisible */
   .bar.idle:focus-within { opacity: 1; transition-duration: 150ms; pointer-events: auto; }
-  label { display: flex; gap: 6px; align-items: center; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; font-size: 11px; }
-  select, button, input[type=range] { font: inherit; color: var(--fg); }
-  select, button { background: transparent; border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; cursor: pointer; }
-  @media (hover: hover) and (pointer: fine) { button:hover, select:hover { border-color: var(--accent); color: var(--accent); } }
-  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  input[type=range] { accent-color: var(--accent); width: 90px; }
-  .status { position: fixed; top: calc(14px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); padding: 4px 8px; border-radius: 6px; background: var(--panel); color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
-  .status b { color: var(--accent); font-weight: normal; }
-  .toast { position: fixed; top: calc(14px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); color: var(--accent); font-size: 12px; opacity: 0; transform: translateY(-6px); transition: opacity 400ms ease, transform 400ms ease; }
+  .more { display: contents; }
+  #moreBtn { display: none; }
+  label { display: flex; gap: 6px; align-items: center; color: var(--dim); text-transform: uppercase; letter-spacing: .1em; font: 700 11px var(--mono); }
+  select { font: 13px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); border-radius: 0; padding: 5px 6px; }
+  input[type=range] { accent-color: var(--acc); width: 90px; }
+  .bar button { padding: 7px 10px; }
+  button#rec { background: var(--rec); border-color: var(--rec); color: #fff; }
+  @media (hover: hover) and (pointer: fine) { button#rec:hover { background: var(--fg); border-color: var(--fg); color: var(--bg); } }
+
+  .status { position: fixed; top: calc(14px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); max-width: calc(100% - 32px);
+            padding: 4px 10px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .status b { color: var(--fg); font-weight: 700; }
+  .status a.home { display: inline-block; padding-block: 5px; color: var(--fg); text-decoration: none; } /* 24px tall: a real target, not 16px of text */
+  @media (hover: hover) and (pointer: fine) { .status a.home:hover { color: var(--acc-text); } }
+  .status.rec, .status.rec b { color: var(--acc-text); }
+  .toast { position: fixed; top: calc(14px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); padding: 6px 10px;
+           font: 700 12px var(--mono); opacity: 0; transform: translateY(-6px); transition: opacity 400ms ease, transform 400ms ease; pointer-events: none; }
   .toast.show { opacity: 1; transform: none; }
-  .status.rec { color: #ff5a4a; }
-  .status.rec b { color: #ff5a4a; }
-  button#rec { border-color: #ff5a4a; color: #ff8a7d; }
-  dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); background: #0d1110; color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 18px; overscroll-behavior: contain; }
+  @media (prefers-reduced-motion: reduce) { .toast { transform: none; transition: opacity 400ms ease; } }
+
+  /* Phone: a compact strip (Freeze, Save, Record, Settings); the rest opens above it */
+  @media (max-width: 720px) {
+    .bar { width: calc(100% - 32px); justify-content: stretch; gap: 8px; }
+    .bar > button { flex: 1 1 0; min-width: 0; padding-inline: 4px; font-size: 11px; letter-spacing: .04em; white-space: nowrap; }
+    #moreBtn { display: inline-flex; align-items: center; justify-content: center; }
+    .more { display: none; }
+    .bar.open .more { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; order: -1; flex-basis: 100%; padding-bottom: 10px; border-bottom: 2px solid var(--line); }
+    .bar.open .more label { flex-direction: column; align-items: stretch; gap: 4px; min-width: 0; }
+    .bar.open .more select, .bar.open .more input[type=range] { width: 100%; min-width: 0; }
+  }
+
+  dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); background: var(--bg); color: var(--fg); border: 3px solid var(--line); border-radius: 0; padding: 18px; overscroll-behavior: contain; }
   dialog::backdrop { background: rgb(0 0 0 / .65); overflow: hidden; overscroll-behavior: contain; }
   /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion.
      The exit only runs where the dialog can stay in the top layer while it fades (overlay); elsewhere it closes at once */
@@ -57,33 +71,21 @@
     @starting-style { dialog[open] { scale: .96; } }
     @supports (overlay: auto) { dialog:not([open]) { scale: .96; } }
   }
-  dialog h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: normal; }
-  dialog img { display: block; width: 100%; height: auto; border-radius: 6px; background: #000; image-rendering: auto; }
+  dialog h2 { margin: 0 0 12px; font: 400 32px/1 var(--display); text-transform: uppercase; }
+  dialog img { display: block; width: 100%; height: auto; background: #000; image-rendering: auto; }
   dialog .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
   dialog p { color: var(--dim); font-size: 12px; margin: 10px 0 0; }
-  dialog code { color: var(--fg); }
-  @media (prefers-reduced-motion: reduce) { .toast { transform: none; transition: opacity 400ms ease; } }
-
-  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a, .btn, summary { touch-action: manipulation; }
-  button, .btn, summary { -webkit-user-select: none; user-select: none; }
-  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active, .btn:active { transform: scale(.97); }
-  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
-  @media (pointer: coarse) {
-    input, select, textarea { font-size: 16px !important; }
-    button, .btn { min-block-size: 44px; }
-  }
+  dialog code { color: var(--fg); background: var(--field); padding: 1px 4px; }
 </style>
 </head>
 <body>
 <main>
 <canvas id="screen" role="img" aria-label="Live ASCII rendering of the camera"></canvas>
-<div class="status" id="status">ASCII Mirror · <b id="src">starting camera…</b> · <span id="fps"></span></div>
-<div class="toast" id="toast" role="status"></div>
+<div class="status panel" id="status"><a class="home" href="../">← Creative Lab</a> · ASCII Mirror · <b id="src">starting camera…</b> · <span id="fps"></span></div>
+<div class="toast panel" id="toast" role="status"></div>
 
-<div class="bar" id="bar">
+<div class="bar panel" id="bar">
+  <div class="more" id="more">
   <label for="charset">Glyphs
     <select id="charset">
       <option value=" .:-=+*#%@">Classic</option>
@@ -108,10 +110,12 @@
   <label for="glow">Glow <input id="glow" type="range" min="0" max="100" value="45"></label>
   <button id="invert" aria-pressed="false" title="Invert (I)">Invert</button>
   <button id="flip" aria-pressed="true" title="Mirror (M)">Mirror</button>
+  <button id="copy" title="Copy as text (C)">Copy text</button>
+  </div>
   <button id="freeze" aria-pressed="false" title="Freeze (Space)">Freeze</button>
   <button id="snap" title="Save PNG (S)">Save PNG</button>
-  <button id="copy" title="Copy as text (C)">Copy text</button>
   <button id="rec" title="Record 5 seconds (R)">Record</button>
+  <button id="moreBtn" aria-expanded="false" aria-controls="more">⋯ Settings</button>
 </div>
 </main>
 
@@ -193,7 +197,7 @@ function render() {
   document.body.style.background = bg;
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = bg; ctx.fillRect(0, 0, screen.width, screen.height);
-  ctx.font = `${ch * 0.92}px ${getComputedStyle(document.body).getPropertyValue('--mono')}`;
+  ctx.font = `${ch * 0.92}px ${getComputedStyle(document.body).getPropertyValue('--glyph')}`;
   ctx.textBaseline = 'top';
   const lines = [];
   let lastFill = '';
@@ -277,14 +281,20 @@ $('copy').onclick = async () => {
 addEventListener('keydown', e => {
   if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === ' ' && e.target.closest('button, a, summary')) return; // Space presses the focused control, it doesn't freeze
   const map = { ' ': 'freeze', i: 'invert', m: 'flip', s: 'snap', c: 'copy', r: 'rec' };
   const id = map[e.key.toLowerCase()]; if (id) { e.preventDefault(); $(id).click(); }
 });
 // Any pointer activity shows the bar; a tap often fires no pointermove, so pointerdown counts too.
 // It stays up while the pointer rests on it.
 let idleT;
-const wake = () => { const bar = $('bar'); bar.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(function hide() { if (bar.matches(':hover')) idleT = setTimeout(hide, 3000); else bar.classList.add('idle'); }, 3000); };
+const wake = () => { const bar = $('bar'); bar.classList.remove('idle'); clearTimeout(idleT); idleT = setTimeout(function hide() { if (bar.matches(':hover') || bar.classList.contains('open')) idleT = setTimeout(hide, 3000); else bar.classList.add('idle'); }, 3000); };
 addEventListener('pointermove', wake); addEventListener('pointerdown', wake);
+// Phone: settings live behind one button; the bar stays up while they're open
+$('moreBtn').onclick = () => {
+  const open = $('bar').classList.toggle('open'); $('moreBtn').setAttribute('aria-expanded', open);
+  $('moreBtn').textContent = open ? '× Close' : '⋯ Settings';
+};
 addEventListener('resize', resize);
 
 /* ---------- Recording: one 5-second take, saved as GIF, video and a terminal script ---------- */
@@ -422,18 +432,8 @@ $('rec').onclick = startRecording;
 $('dlGif').onclick = () => saveBlob(lastClip.gif, 'ascii-clip.gif');
 $('dlVideo').onclick = () => saveBlob(lastClip.video, `ascii-clip.${lastClip.video.type.includes('mp4') ? 'mp4' : 'webm'}`);
 $('dlSh').onclick = () => saveBlob(lastClip.sh, 'ascii-clip.sh');
-// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
-if (!('commandForElement' in HTMLButtonElement.prototype)) $('clipClose').onclick = () => $('clip').close();
-// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
-// so a text-selection drag that ends on the backdrop doesn't close the dialog
-if (!('closedBy' in HTMLDialogElement.prototype)) {
-  const outside = e => { const r = $('clip').getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
-  let pressedOutside = false;
-  $('clip').addEventListener('pointerdown', e => { pressedOutside = outside(e); });
-  $('clip').addEventListener('pointerup', e => { if (pressedOutside && outside(e)) $('clip').close(); });
-}
 
-resize(); startCamera(); start();
+resize(); startCamera(); start(); wake(); // the bar fades after 3s even if the pointer never moves
 </script>
 </body>
 </html>

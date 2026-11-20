@@ -7,19 +7,21 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>City Score</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../lab.css">
 <style>
-  /* Layout: controls on the left, the block as a top-down score with a moving playhead on the right; stacks on narrow screens */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed;
-          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; color-scheme: dark; }
+  /* Layout: title and controls on the left, the block as a top-down score with a moving playhead on the right.
+     Narrow screens put the result first: title, then the map with Play, then the controls (.stage-first, proposed for lab.css) */
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; }
+  .stage-first { --side: 340px; display: grid; gap: 0 32px; align-items: start;
+                 grid-template-columns: minmax(0, var(--side)) minmax(0, 1fr); grid-template-rows: auto 1fr;
+                 grid-template-areas: "intro stage" "controls stage"; }
+  .stage-first > .intro { grid-area: intro; }
+  .stage-first > .controls { grid-area: controls; }
+  .stage-first > .stagewrap { grid-area: stage; }
+  @media (max-width: 860px) {
+    .stage-first { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "intro" "stage" "controls"; }
+    .stage-first > .stagewrap { position: static; margin-bottom: 28px; }
   }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
-  .wrap { max-width: 1280px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; display: grid; gap: 32px;
-          grid-template-columns: minmax(0, 340px) minmax(0, 1fr); align-items: start; }
-  @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
-  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
   h1 { font: 400 clamp(52px, 7vw, 92px)/.85 var(--display); text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 22px; }
@@ -27,38 +29,56 @@
   label, legend { font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; padding: 0; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   input[type=search], select { flex: 1; min-width: 0; font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; }
-  button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
-           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
-  @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
-  button.primary { background: #c2210b; border-color: #c2210b; color: #fff; }
-  button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
+  /* Playing: Play reads as pressed ink, not red with a red border (lab.css's .primary otherwise wins over [aria-pressed]) */
+  button.primary[aria-pressed=true] { background: var(--fg); border-color: var(--fg); color: var(--bg); }
   .presets button { padding: 6px 8px; font-size: 11px; }
-  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
-  .status { min-height: 1.5em; color: var(--dim); font-size: 12px; }
-  .status.err { color: var(--acc-text); }
-  .stagewrap { position: sticky; top: 16px; }
+  /* Short enough that the caption with Play fits a laptop screen under the sticky top */
+  .stagewrap { position: sticky; top: 16px; width: min(100%, max(360px, 100svh - 150px)); }
+  .stage { position: relative; }
   canvas { display: block; width: 100%; height: auto; aspect-ratio: 1; border: 3px solid var(--line); background: var(--field); }
-  .caption { display: flex; justify-content: space-between; gap: 16px; align-items: baseline; margin-top: 10px; }
+  /* Status lives with the map: a chip over it while loading, a panel with Retry when something fails.
+     Once loaded the caption says what you'll hear, so the status line is only announced, not shown. */
+  .msg:not([data-state]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .msg p { margin: 0; }
+  .msg[data-state] { position: absolute; color: var(--fg); background: var(--bg); border: 2px solid var(--line); font-size: 12px; }
+  .msg:is([data-state=loading], [data-state=warn]) { top: 15px; left: 15px; right: 15px; width: fit-content; padding: 6px 10px; pointer-events: none; }
+  .msg[data-state=warn] { color: var(--acc-text); }
+  .msg[data-state=error] { inset: 50% 15px auto; translate: 0 -50%; padding: 16px; display: grid; gap: 12px; justify-items: start; font-size: 13px; }
+  .msg[data-state=error] p { font-weight: 700; }
+  /* Caption: the place and what you'll hear, with Play and Save WAV right under the picture */
+  .caption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 16px; align-items: center; margin-top: 10px; }
+  .caption .what { display: grid; gap: 4px; min-width: 0; }
   .caption b { font: 400 34px/1 var(--display); text-transform: uppercase; }
-  .caption span { color: var(--dim); font-size: 12px; text-align: right; }
+  .caption span { color: var(--dim); font-size: 12px; }
+  .caption .row { flex-wrap: nowrap; }
   .credit { color: var(--dim); font-size: 11px; margin-top: 18px; }
   .credit a { color: inherit; }
   .legend { color: var(--dim); font-size: 12px; margin: 0 0 16px; padding-left: 18px; }
-  /* Touch baseline (same as the other pages) */
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a { touch-action: manipulation; }
-  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active { transform: scale(.97); }
-  button:disabled { opacity: .4; cursor: not-allowed; }
-  @media (pointer: coarse) { input, select { font-size: 16px !important; } button { min-block-size: 44px; } }
 </style>
 </head>
 <body>
-<main class="wrap">
-  <div>
+<main class="wrap stage-first">
+  <header class="intro">
     <a class="back" href="../">← Creative Lab</a>
     <h1>City<br>score<span>.</span></h1>
     <p class="lede">A city block played as music. A playhead sweeps across the map; every building it reaches rings a note.</p>
+  </header>
+
+  <div class="stagewrap">
+    <div class="stage">
+      <canvas id="c" tabindex="-1" role="img" aria-label="Top-down map of the block"></canvas>
+      <div class="msg" id="msg"><p id="status" role="status"></p><button type="button" id="retry" hidden>Retry</button></div>
+    </div>
+    <div class="caption">
+      <div class="what"><b id="cname"></b><span id="cmeta"></span></div>
+      <div class="row">
+        <button type="button" class="primary" id="play" aria-pressed="false" disabled>Play</button>
+        <button type="button" id="wav" disabled>Save WAV</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
     <ul class="legend">
       <li>Taller building, lower note</li>
       <li>Bigger footprint, louder</li>
@@ -93,17 +113,7 @@
         </select>
       </div>
     </fieldset>
-    <div class="row">
-      <button type="button" class="primary" id="play" disabled>Play</button>
-      <button type="button" id="wav" disabled>Save WAV</button>
-    </div>
-    <p class="status" id="status" role="status"></p>
     <p class="credit">Map data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>, tiles from <a href="https://openfreemap.org">OpenFreeMap</a>, search by <a href="https://nominatim.org">Nominatim</a>. Same map loader as <a href="../diorama/">Street Diorama</a>.</p>
-  </div>
-
-  <div class="stagewrap">
-    <canvas id="c" role="img" aria-label="Top-down map of the block"></canvas>
-    <div class="caption"><b id="cname"></b><span id="cmeta"></span></div>
   </div>
 </main>
 
@@ -119,7 +129,8 @@ const SCALES = {
   dorian: { label: 'Dorian', steps: [0, 2, 3, 5, 7, 9, 10] },
   whole: { label: 'Whole tone', steps: [0, 2, 4, 6, 8, 10] },
 };
-const SWEEPS = { we: 'West → East', sn: 'South → North', ripple: 'Ripple' };
+const SWEEPS = { we: '→ East', sn: '↑ North', ripple: 'Ripple' }; // short so all three fit one row
+const SWEEP_TITLES = { we: 'West to east', sn: 'South to north', ripple: 'From the centre out' };
 const GRID = 64; // playhead steps per pass
 
 function pip(rings, x, y) { // even-odd point in polygon over all rings
@@ -281,7 +292,7 @@ let actx = null, src = null, startedAt = 0, raf = 0, current = null, buildId = 0
 async function rebuild() {
   stop(); current = null; $('play').disabled = $('wav').disabled = true;
   if (!state.data) return;
-  const id = ++buildId; status('Composing…');
+  const id = ++buildId; status('Composing…', 'loading');
   const sc = score(state.data, state), buf = await render(sc, state);
   if (id !== buildId) return;
   current = { sc, buf };
@@ -296,13 +307,13 @@ function play() {
   actx.resume();
   src = actx.createBufferSource(); src.buffer = current.buf; src.loop = true; src.loopEnd = state.len;
   src.connect(actx.destination); src.start(); startedAt = actx.currentTime;
-  $('play').textContent = 'Stop'; $('play').setAttribute('aria-pressed', 'true');
+  $('play').setAttribute('aria-pressed', 'true'); // the label stays "Play"; pressed means playing
   const tick = () => { draw((actx.currentTime - startedAt) % state.len); raf = requestAnimationFrame(tick); };
   tick();
 }
 function stop() {
   if (src) { try { src.stop(); } catch {} src.disconnect(); src = null; }
-  cancelAnimationFrame(raf); $('play').textContent = 'Play'; $('play').setAttribute('aria-pressed', 'false'); draw();
+  cancelAnimationFrame(raf); $('play').setAttribute('aria-pressed', 'false'); draw();
 }
 $('play').onclick = () => src ? stop() : play();
 $('wav').onclick = () => {
@@ -311,13 +322,27 @@ $('wav').onclick = () => {
 };
 
 /* ---------- Place, controls, URL ---------- */
-const status = (m, err) => { $('status').textContent = m; $('status').className = 'status' + (err ? ' err' : ''); };
+// state: 'loading' (chip over the map), 'error' (panel over it, with Retry when there is something to retry),
+// 'warn' (red chip, the last block stays playable), or idle (announced only; the caption shows the result)
+let retryWith = null;
+function status(msg, state, retry = null) {
+  $('status').textContent = msg;
+  if (state) $('msg').dataset.state = state; else delete $('msg').dataset.state;
+  // Hiding a focused Retry would drop keyboard focus to <body>; hand it to the picture instead
+  if (!retry && document.activeElement === $('retry')) cv.focus();
+  retryWith = retry; $('retry').hidden = !retry;
+}
+$('retry').onclick = () => retryWith?.();
+// Plain words instead of "Failed to fetch" or "tile 4581/2702: HTTP 503"
+const why = (e, what) => e?.name === 'TimeoutError' ? `The ${what} took too long to answer.`
+  : e instanceof TypeError ? `The ${what} can’t be reached; check your connection.`
+  : `The ${what} had a problem; try again in a moment.`;
 const PRESETS = [['Warsaw Old Town', 52.2497, 21.0122], ['Flatiron, NYC', 40.7411, -73.9897], ['Eixample, Barcelona', 41.3936, 2.1630],
                  ['Rialto, Venice', 45.4380, 12.3359], ['Shibuya, Tokyo', 35.6595, 139.7005], ['Central Park South', 40.7681, -73.9772]];
 for (const [n, la, lo] of PRESETS) { const b = document.createElement('button'); b.type = 'button'; b.textContent = n; b.onclick = () => go(la, lo, n); $('presets').append(b); }
 for (const [k, v] of Object.entries(SCALES)) $('scale').add(new Option(v.label, k));
 for (const [k, v] of Object.entries(SWEEPS)) {
-  const b = document.createElement('button'); b.type = 'button'; b.textContent = v; b.dataset.v = k;
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = v; b.title = SWEEP_TITLES[k]; b.dataset.v = k;
   b.onclick = () => { state.sweep = k; syncControls(); persist(); rebuild(); }; $('sweep').append(b);
 }
 function syncControls() {
@@ -328,23 +353,28 @@ function persist() { history.replaceState(null, '', '#' + new URLSearchParams({ 
 let loadId = 0;
 async function go(lat, lon, name) {
   Object.assign(state, { lat, lon, name }); persist(); stop();
-  const id = ++loadId; status(`Loading ${name}…`); $('cname').textContent = name;
+  const id = ++loadId; status(`Loading ${name}…`, 'loading'); $('cname').textContent = name;
   try {
     const data = await loadArea(lat, lon, state.R);
     if (id !== loadId) return;
     state.data = data;
     cv.setAttribute('aria-label', `Top-down map of ${name}, ${state.R * 2} metres across, ${data.buildings.length} building pieces.`);
     await rebuild();
-  } catch (e) { if (id === loadId) status(`Couldn't load the map: ${e.message}`, true); }
+  } catch (e) { if (id === loadId) status(`Couldn’t load ${name}. ${why(e, 'map server')}`, 'error', () => go(lat, lon, name)); }
 }
-$('search').addEventListener('submit', async e => {
-  e.preventDefault(); const q = $('q').value.trim(); if (!q) return;
-  status(`Searching for “${q}”…`);
+async function search(q) {
+  status(`Searching for “${q}”…`, 'loading');
+  let hit;
   try {
-    const [hit] = await (await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`)).json();
-    if (!hit) return status(`Nothing found for “${q}”.`, true);
-    go(+hit.lat, +hit.lon, hit.name || hit.display_name.split(',')[0]);
-  } catch (err) { status(`Search failed: ${err.message}`, true); }
+    const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}`, { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    [hit] = await r.json();
+  } catch (e) { return status(`Couldn’t search for “${q}”. ${why(e, 'place search')}`, 'error', () => search(q)); }
+  if (!hit) return status(`Nothing found for “${q}”. Try a street with its city.`, 'warn');
+  go(+hit.lat, +hit.lon, hit.name || hit.display_name.split(',')[0]);
+}
+$('search').addEventListener('submit', e => {
+  e.preventDefault(); const q = $('q').value.trim(); if (q) search(q);
 });
 $('radius').onchange = e => { state.R = +e.target.value; go(state.lat, state.lon, state.name); };
 $('scale').onchange = e => { state.scale = e.target.value; persist(); rebuild(); };
