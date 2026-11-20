@@ -219,12 +219,14 @@ function cleanup() {
   $('run').classList.remove('sweeping'); $('count').textContent = '';
   lock?.release().catch(() => {}); lock = null; if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
+let stoppedAt = 0;
 function stop() {
-  cleanup();
+  cleanup(); stoppedAt = performance.now();
   if ($('run').open) $('run').close();
 }
 $('stop').addEventListener('click', stop);
-$('run').addEventListener('pointerdown', e => { if (!e.target.closest('#stop')) { e.preventDefault(); stop(); } });
+// Stop on click, not pointerdown: after a touch pointerdown the follow-up click would land on #go under the closed dialog and restart the run
+$('run').addEventListener('click', e => { if (!e.target.closest('#stop')) stop(); });
 $('run').addEventListener('close', cleanup);
 
 /* ---------- Controls ---------- */
@@ -247,7 +249,7 @@ $('dur').oninput = e => { state.dur = +e.target.value; update(); };
 $('band').oninput = e => { state.band = +e.target.value; update(); };
 $('bright').oninput = e => { state.bright = +e.target.value; update(); };
 $('file').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { state.image = await createImageBitmap(f); state.source = 'image'; sync(); update(); } catch { alert('Could not open that image.'); } };
-$('go').onclick = run;
+$('go').onclick = () => { if (performance.now() - stoppedAt > 500) run(); }; // a stray click right after stopping must not start a new run
 sync(); update();
 </script>
 </body>

@@ -241,6 +241,8 @@ function renderPick() {
     l.append(cb, t); li.append(l); return li;
   }));
   $('pickcount').textContent = `${state.chosen.length} of 6`;
+  // Print and PNG would export the last complete sheet, which no longer matches the picks
+  $('print').disabled = $('png').disabled = state.chosen.length < 6;
 }
 function shuffle() {
   // Prefer posts with something to say: the longest texts, shuffled
@@ -252,11 +254,13 @@ function shuffle() {
 /* ---------- Controls ---------- */
 Object.keys(INKS).forEach(k => $('ink').add(new Option(k[0].toUpperCase() + k.slice(1), k)));
 $('ink').value = 'signal';
-for (const id of ['title', 'issue']) $(id).oninput = () => state.chosen.length === 6 && build();
-for (const id of ['ink', 'guides']) $(id).onchange = build;
-$('paper').onchange = e => { state.paper = e.target.value; build(); };
+// The sheet needs all six posts; with fewer, settings are kept and applied once the sixth is picked
+const rebuild = () => state.chosen.length === 6 && build();
+for (const id of ['title', 'issue']) $(id).oninput = rebuild;
+for (const id of ['ink', 'guides']) $(id).onchange = rebuild;
+$('paper').onchange = e => { state.paper = e.target.value; rebuild(); };
 $('shuffle').onclick = () => { shuffle(); renderPick(); build(); };
-$('restyle').onclick = () => { state.seed++; build(); };
+$('restyle').onclick = () => { state.seed++; rebuild(); };
 $('print').onclick = () => print();
 $('png').onclick = () => sheetCanvas.toBlob(b => { const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `zine-${$('issue').value || '01'}.png`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); });
 
