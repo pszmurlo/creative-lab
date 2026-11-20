@@ -40,6 +40,8 @@
   .empty.next::after { content: "next"; position: absolute; }
   .empty.next { position: relative; font-size: 0; }
   .empty.next::after { font: 700 12px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  /* One column on phones: a waiting day needs a strip, not a full-width square */
+  @media (max-width: 500px) { .empty { aspect-ratio: 5 / 1; font-size: 28px; } }
 
   dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 3px solid var(--line);
            background: var(--bg); color: var(--fg); overscroll-behavior: contain; }
@@ -66,7 +68,15 @@
   pre { margin: 0; padding: 12px; overflow: auto; max-height: 280px; font: 12px/1.5 var(--mono); background: var(--tile); border: 1px solid var(--line); white-space: pre-wrap; word-break: break-word; }
   .bar { display: flex; flex-wrap: wrap; gap: 8px; }
   .bar .close { margin-left: auto; }
-  @media (max-width: 720px) { .dlg { grid-template-columns: 1fr; } .big { min-height: 240px; border-right: 0; border-bottom: 3px solid var(--line); } .big > div { scale: 1.3; } }
+  #prev, #next { min-inline-size: 44px; justify-content: center; }
+  /* One column: a shorter stage and code box, and the actions pinned to the bottom of the dialog so Copy is always in reach */
+  @media (max-width: 720px) {
+    .dlg { grid-template-columns: 1fr; }
+    .big { min-height: 200px; border-right: 0; border-bottom: 3px solid var(--line); } .big > div { scale: 1.3; }
+    .side { padding-bottom: 0; }
+    pre { max-height: 160px; }
+    .bar { position: sticky; bottom: 0; margin: 0 -20px; padding: 12px 20px max(12px, env(safe-area-inset-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
+  }
 
   .tile:active { transform: scale(.98); }
 </style>
