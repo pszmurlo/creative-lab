@@ -249,8 +249,6 @@ function setCityStatus(msg, err = false) {
   else input.removeAttribute('aria-describedby');
 }
 $('gear').onclick = () => { $('city').value = store.get('morning-slip', {}).place?.name || ''; setCityStatus(''); $('settings').showModal(); };
-// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
-if (!('commandForElement' in HTMLButtonElement.prototype)) $('close').onclick = () => $('settings').close();
 $('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
 $('city').addEventListener('input', () => {
   if ($('city').getAttribute('aria-invalid') === 'true') setCityStatus('');
@@ -288,14 +286,6 @@ $('cityform').addEventListener('submit', async e => {
     if (seq === cityLookupSeq) btn.disabled = false;
   }
 });
-// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
-// so a text-selection drag that ends on the backdrop doesn't close the dialog
-if (!('closedBy' in HTMLDialogElement.prototype)) {
-  const outside = e => { const r = $('settings').getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
-  let pressedOutside = false;
-  $('settings').addEventListener('pointerdown', e => { pressedOutside = outside(e); });
-  $('settings').addEventListener('pointerup', e => { if (pressedOutside && outside(e)) $('settings').close(); });
-}
 // Data changed in another tab (Tap Log, Shared Hour)
 addEventListener('storage', refresh);
 
