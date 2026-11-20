@@ -15,15 +15,22 @@
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); max-width: 52ch; margin: 0 0 40px; }
   ol { list-style: none; margin: 0; padding: 0; border-top: 3px solid var(--line); }
-  li a { display: grid; grid-template-columns: 4ch minmax(0, 1fr) auto; gap: 16px; align-items: baseline;
+  li a { display: grid; grid-template-columns: 4ch 128px minmax(0, 1fr) auto; gap: 16px; align-items: center;
          padding: 18px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
   li a:focus-visible .name { color: var(--acc-text); }
   @media (hover: hover) and (pointer: fine) { li a:hover .name { color: var(--acc-text); } }
-  .no { color: var(--dim); }
+  .no { color: var(--dim); align-self: baseline; }
+  /* Thumbnail of each piece; decorative, the name and description already say what it is */
+  .thumb { display: block; width: 128px; height: auto; aspect-ratio: 8 / 5; object-fit: cover; border: 2px solid var(--line); background: var(--field); }
   .name { font: 400 clamp(28px, 5vw, 48px)/1 var(--display); text-transform: uppercase; }
   .desc { display: block; color: var(--dim); margin-top: 6px; font-size: 13px; }
   .tag { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
-  @media (max-width: 560px) { li a { grid-template-columns: 3ch minmax(0, 1fr); } .tag { grid-column: 2; } }
+  /* Phone: a smaller thumbnail beside the name, so the list stays about as long as it was */
+  @media (max-width: 560px) {
+    li a { grid-template-columns: 3ch 88px minmax(0, 1fr); gap: 4px 12px; align-items: start; }
+    .thumb { width: 88px; grid-row: span 2; }
+    .tag { grid-column: 3; }
+  }
 
 </style>
 </head>
@@ -34,74 +41,92 @@
   <ol>
     <li><a href="dither/index.html">
       <span class="no">18</span>
+      <img class="thumb" src="thumbs/dither.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Dither Booth</span><span class="desc">A 1-bit photo booth: Atkinson, Floyd–Steinberg, Bayer or halftone, single shots or a four-frame strip for a receipt printer.</span></span>
       <span class="tag">camera · print</span></a></li>
     <li><a href="daily/index.html">
       <span class="no">17</span>
+      <img class="thumb" src="thumbs/daily.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Daily Page</span><span class="desc">One page a day: open it and type. Unfinished tasks swipe to tomorrow. Stays on your device.</span></span>
       <span class="tag">journal · daily</span></a></li>
     <li><a href="zine/index.html">
       <span class="no">16</span>
+      <img class="thumb" src="thumbs/zine.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Bookmark Zine</span><span class="desc">Six X bookmarks as an eight-page zine: one sheet, one cut, folded by hand. Pages set by the Poster Machine.</span></span>
       <span class="tag">print · zine</span></a></li>
     <li><a href="light-brush/index.html">
       <span class="no">15</span>
+      <img class="thumb" src="thumbs/light-brush.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Light Brush</span><span class="desc">Paint text, parking arcs or images in the air: the phone plays them slice by slice during a long exposure.</span></span>
       <span class="tag">light · photo</span></a></li>
     <li><a href="desk/index.html">
       <span class="no">14</span>
+      <img class="thumb" src="thumbs/desk.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Desk Display</span><span class="desc">A kiosk for an old phone or e-reader: clock, weather, shared hour and tap-to-log habits. Dims at night.</span></span>
       <span class="tag">kiosk · ambient</span></a></li>
     <li><a href="morning-slip/index.html">
       <span class="no">13</span>
+      <img class="thumb" src="thumbs/morning-slip.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Morning Slip</span><span class="desc">A daily receipt: weather, Tap Log streaks, today's shared hour and a prompt. 1-bit, thermal-printer width.</span></span>
       <span class="tag">print · daily</span></a></li>
     <li><a href="parking-calendar/index.html">
       <span class="no">12</span>
+      <img class="thumb" src="thumbs/parking-calendar.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Parking Calendar</span><span class="desc">A year of Perfect Parking plots, one per month, seeded by the date. Prints to PDF, plots from SVG.</span></span>
       <span class="tag">plotter · print</span></a></li>
     <li><a href="city-score/index.html">
       <span class="no">11</span>
+      <img class="thumb" src="thumbs/city-score.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">City Score</span><span class="desc">A city block played as music: buildings ring as a playhead sweeps the map. Loops live, saves WAV.</span></span>
       <span class="tag">maps · audio</span></a></li>
     <li><a href="moodboard/index.html">
       <span class="no">10</span>
+      <img class="thumb" src="thumbs/moodboard.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Moodboard</span><span class="desc">Five paintings pooled into one palette, a mood, a type pairing and a poster. Colour maths, no AI.</span></span>
       <span class="tag">colour · type</span></a></li>
     <li><a href="shared-hour/index.html">
       <span class="no">09</span>
+      <img class="thumb" src="thumbs/shared-hour.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Shared Hour</span><span class="desc">A 24-hour clock that finds the hours everyone in different time zones is awake.</span></span>
       <span class="tag">time · svg</span></a></li>
     <li><a href="parking/index.html">
       <span class="no">08</span>
+      <img class="thumb" src="thumbs/parking.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Perfect Parking</span><span class="desc">Simulated parallel-parking sweeps as pen-plotter drawings, three layouts, layered SVG in millimetres.</span></span>
       <span class="tag">plotter · svg</span></a></li>
     <li><a href="tap/index.html">
       <span class="no">07</span>
+      <img class="thumb" src="thumbs/tap.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Tap Log</span><span class="desc">NFC stickers around the house: tap to log a habit and open a playlist. Streaks, heatmaps, QR fallback.</span></span>
       <span class="tag">nfc · habits</span></a></li>
     <li><a href="paintings/index.html">
       <span class="no">06</span>
+      <img class="thumb" src="thumbs/paintings.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Painted Twin</span><span class="desc">Your photos matched to 650 public-domain paintings by composition, in the browser.</span></span>
       <span class="tag">images · matching</span></a></li>
     <li><a href="brick-room/index.html">
       <span class="no">05</span>
+      <img class="thumb" src="thumbs/brick-room.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Brick Room</span><span class="desc">Rooms as buildable brick models: a desk corner and a whole flat, with a printable instruction booklet and a parts order.</span></span>
       <span class="tag">bricks · canvas</span></a></li>
     <li><a href="diorama/index.html">
       <span class="no">04</span>
+      <img class="thumb" src="thumbs/diorama.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Street Diorama</span><span class="desc">Any place on Earth as an isometric block at real building heights, four print styles.</span></span>
       <span class="tag">maps · canvas</span></a></li>
     <li><a href="loaders/index.html">
       <span class="no">03</span>
+      <img class="thumb" src="thumbs/loaders.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Loader a Day</span><span class="desc">Thirty days of loading animations in pure HTML and CSS, each one copyable.</span></span>
       <span class="tag">css · motion</span></a></li>
     <li><a href="poster-machine/index.html">
       <span class="no">02</span>
+      <img class="thumb" src="thumbs/poster-machine.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">Poster Machine</span><span class="desc">X bookmarks reprinted as brutalist posters, five layouts, seven inks, PNG export.</span></span>
       <span class="tag">canvas · type</span></a></li>
     <li><a href="ascii-mirror/index.html">
       <span class="no">01</span>
+      <img class="thumb" src="thumbs/ascii-mirror.webp" width="256" height="160" alt="" loading="lazy" decoding="async">
       <span><span class="name">ASCII Mirror</span><span class="desc">Webcam to live ASCII art with glow, six glyph sets and five color modes. Records 5-second clips as GIF, video or a terminal animation.</span></span>
       <span class="tag">webcam · canvas</span></a></li>
   </ol>
