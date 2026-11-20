@@ -46,6 +46,7 @@
   .empty a { color: inherit; }
 
   /* Night: only a faint clock, nothing else (tap to wake for 30 s) */
+  .side, .clock span, .clock b { transition: opacity 400ms ease; } /* night falls and lifts gently instead of snapping */
   body.night .side, body.night .clock span { opacity: 0; }
   body.night .clock b { opacity: .16; }
   body.night.eink .clock b { opacity: 1; }
@@ -53,12 +54,25 @@
 
   .gear { position: fixed; top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); width: 44px; height: 44px;
           border: 0; background: none; color: var(--dim); opacity: .35; font-size: 22px; cursor: pointer; }
-  .gear:focus-visible, .gear:hover { opacity: 1; }
+  .gear:focus-visible { opacity: 1; }
+  @media (hover: hover) and (pointer: fine) { .gear:hover { opacity: 1; } } /* ungated, a tap left the gear lit on touch screens */
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
 
   dialog { width: min(520px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); background: #151514; color: #f2f0eb; border: 2px solid #f2f0eb; padding: 20px; overscroll-behavior: contain; font-size: 14px; }
   body.eink dialog { background: #fff; color: #000; border-color: #000; }
   dialog::backdrop { background: rgb(0 0 0 / .7); overflow: hidden; overscroll-behavior: contain; }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion.
+     The exit only runs where the dialog can stay in the top layer while it fades (overlay); elsewhere it closes at once */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1); }
+  @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @supports (overlay: auto) {
+    dialog, dialog::backdrop { transition-property: opacity, scale, overlay, display; transition-behavior: allow-discrete; }
+    dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    @starting-style { dialog[open] { scale: .96; } }
+    @supports (overlay: auto) { dialog:not([open]) { scale: .96; } }
+  }
   dialog h3 { margin: 0 0 14px; font: 400 32px/1 var(--display); text-transform: uppercase; }
   dialog label { display: grid; gap: 6px; margin-bottom: 12px; font: 700 11px var(--mono); letter-spacing: .1em; text-transform: uppercase; }
   dialog .inline { display: flex; align-items: center; gap: 8px; font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 14px; }
@@ -77,7 +91,12 @@
   body.eink dialog .citystatus { color: #000; }
   dialog a { color: inherit; }
   html { -webkit-tap-highlight-color: transparent; }
-  button { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+  button { touch-action: manipulation; -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  .gear { transition: opacity 150ms ease, transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  body:not(.eink) dialog button:active, body:not(.eink) .gear:active { transform: scale(.97); }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  /* E-ink: no motion at all */
+  body.eink button, body.eink .side, body.eink .clock span, body.eink .clock b, body.eink dialog, body.eink dialog::backdrop { transition: none; }
 </style>
 </head>
 <body>
@@ -110,7 +129,7 @@
     </div>
     <p class="citystatus" id="citystatus" role="status" aria-live="polite"></p>
   </form>
-  <div class="row"><button type="button" id="fs">Full screen</button><button type="button" id="close">Close</button></div>
+  <div class="row"><button type="button" id="fs">Full screen</button><button type="button" id="close" command="close" commandfor="settings">Close</button></div>
   <p class="note">Install it: Android Chrome menu → Add to home screen; iPhone/iPad Share → Add to Home Screen. Keep the device charging; on Android also turn on Developer options → Stay awake. On an iPad, Guided Access keeps it locked to this page. Kindle and other e-readers: open it in the built-in browser and pick E-ink.</p>
   <p class="note">Habits come from <a href="../tap/">Tap Log</a>, friends from <a href="../shared-hour/">Shared Hour</a>, the city from <a href="../morning-slip/">Morning Slip</a>, all stored in this browser. Tap a habit to log it.</p>
 </dialog>
@@ -230,7 +249,8 @@ function setCityStatus(msg, err = false) {
   else input.removeAttribute('aria-describedby');
 }
 $('gear').onclick = () => { $('city').value = store.get('morning-slip', {}).place?.name || ''; setCityStatus(''); $('settings').showModal(); };
-$('close').onclick = () => $('settings').close();
+// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
+if (!('commandForElement' in HTMLButtonElement.prototype)) $('close').onclick = () => $('settings').close();
 $('fs').onclick = () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
 $('city').addEventListener('input', () => {
   if ($('city').getAttribute('aria-invalid') === 'true') setCityStatus('');
@@ -268,7 +288,14 @@ $('cityform').addEventListener('submit', async e => {
     if (seq === cityLookupSeq) btn.disabled = false;
   }
 });
-if (!('closedBy' in HTMLDialogElement.prototype)) $('settings').addEventListener('click', e => { if (e.target !== $('settings')) return; const r = e.target.getBoundingClientRect(); if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) e.target.close(); });
+// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
+// so a text-selection drag that ends on the backdrop doesn't close the dialog
+if (!('closedBy' in HTMLDialogElement.prototype)) {
+  const outside = e => { const r = $('settings').getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
+  let pressedOutside = false;
+  $('settings').addEventListener('pointerdown', e => { pressedOutside = outside(e); });
+  $('settings').addEventListener('pointerup', e => { if (pressedOutside && outside(e)) $('settings').close(); });
+}
 // Data changed in another tab (Tap Log, Shared Hour)
 addEventListener('storage', refresh);
 

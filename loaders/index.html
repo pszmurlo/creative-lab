@@ -50,14 +50,17 @@
   dialog { width: min(920px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 3px solid var(--line);
            background: var(--bg); color: var(--fg); overscroll-behavior: contain; }
   dialog::backdrop { background: rgb(0 0 0 / .6); overflow: hidden; overscroll-behavior: contain; }
-  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion */
-  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
-  dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion.
+     The exit only runs where the dialog can stay in the top layer while it fades (overlay); elsewhere it closes at once */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1); }
   @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @supports (overlay: auto) {
+    dialog, dialog::backdrop { transition-property: opacity, scale, overlay, display; transition-behavior: allow-discrete; }
+    dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  }
   @media (prefers-reduced-motion: no-preference) {
-    dialog { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1), overlay 200ms allow-discrete, display 200ms allow-discrete; }
-    dialog:not([open]) { scale: .96; }
     @starting-style { dialog[open] { scale: .96; } }
+    @supports (overlay: auto) { dialog:not([open]) { scale: .96; } }
   }
   .dlg { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
   .big { display: grid; place-items: center; min-height: 360px; background: var(--tile); border-right: 3px solid var(--line); overflow: hidden; }
@@ -110,7 +113,7 @@
         <button type="button" id="prev" aria-label="Previous loader">←</button>
         <button type="button" id="next" aria-label="Next loader">→</button>
         <button type="button" id="copy">Copy code</button>
-        <button type="button" class="close" id="close">Close</button>
+        <button type="button" class="close" id="close" command="close" commandfor="dlg">Close</button>
       </div>
     </div>
   </div>
@@ -122,7 +125,7 @@
   // Off-screen tiles pause. Reduced-motion visitors get each loader's own slowed-down version (it lives in its CSS).
   // Forced colors (Windows High Contrast) would erase the loaders' fills, so they opt out and draw in system colors.
   const TOTAL = 30;
-  const loaders = [...window.LOADERS].sort((a, b) => a.day - b.day);
+  const loaders = window.LOADERS.toSorted((a, b) => a.day - b.day);
   const pad = n => String(n).padStart(2, '0');
   const PAUSE_CSS = `:host { display: block; } :host([data-paused]) *, :host([data-paused]) *::before, :host([data-paused]) *::after { animation-play-state: paused !important; }
 @media (forced-colors: active) { :host { --ink: CanvasText; --acc: Highlight; } *, *::before, *::after { forced-color-adjust: none; } }`;
@@ -157,7 +160,6 @@
       const stage = document.createElement('div'); stage.className = 'stage';
       const host = document.createElement('div');
       stage.append(host);
-      b.innerHTML = '';
       b.append(stage);
       const cap = document.createElement('div'); cap.className = 'cap';
       cap.innerHTML = `<b></b><span>${pad(d)}</span>`;
@@ -206,7 +208,8 @@
   function open(i) { show(i); dlg.showModal(); }
   document.getElementById('prev').onclick = () => show(cur - 1);
   document.getElementById('next').onclick = () => show(cur + 1);
-  document.getElementById('close').onclick = () => dlg.close();
+  // Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
+  if (!('commandForElement' in HTMLButtonElement.prototype)) document.getElementById('close').onclick = () => dlg.close();
   let copyT;
   document.getElementById('copy').onclick = async e => {
     const b = e.currentTarget;
@@ -218,14 +221,13 @@
     if (e.key === 'ArrowRight') show(cur + 1);
     if (e.key === 'ArrowLeft') show(cur - 1);
   });
-  // Light dismiss for browsers without closedby (Safari)
+  // Light dismiss where closedby is missing (Safari). Press and release must both land outside,
+  // so a text-selection drag that ends on the backdrop doesn't close the dialog
   if (!('closedBy' in HTMLDialogElement.prototype)) {
-    dlg.addEventListener('click', e => {
-      if (e.target !== dlg) return;
-      const r = dlg.getBoundingClientRect();
-      const inside = r.top <= e.clientY && e.clientY <= r.bottom && r.left <= e.clientX && e.clientX <= r.right;
-      if (!inside) dlg.close();
-    });
+    const outside = e => { const r = dlg.getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
+    let pressedOutside = false;
+    dlg.addEventListener('pointerdown', e => { pressedOutside = outside(e); });
+    dlg.addEventListener('pointerup', e => { if (pressedOutside && outside(e)) dlg.close(); });
   }
 </script>
 </body>

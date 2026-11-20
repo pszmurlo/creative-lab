@@ -45,6 +45,18 @@
   button#rec { border-color: #ff5a4a; color: #ff8a7d; }
   dialog { width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); background: #0d1110; color: var(--fg); border: 1px solid var(--line); border-radius: 12px; padding: 18px; overscroll-behavior: contain; }
   dialog::backdrop { background: rgb(0 0 0 / .65); overflow: hidden; overscroll-behavior: contain; }
+  /* Dialog enter/exit: fade in 200ms, out 150ms; the slight scale is skipped under reduced motion.
+     The exit only runs where the dialog can stay in the top layer while it fades (overlay); elsewhere it closes at once */
+  dialog, dialog::backdrop { transition: opacity 200ms cubic-bezier(.23, 1, .32, 1), scale 200ms cubic-bezier(.23, 1, .32, 1); }
+  @starting-style { dialog[open], dialog[open]::backdrop { opacity: 0; } }
+  @supports (overlay: auto) {
+    dialog, dialog::backdrop { transition-property: opacity, scale, overlay, display; transition-behavior: allow-discrete; }
+    dialog:not([open]), dialog:not([open])::backdrop { opacity: 0; transition-duration: 150ms; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    @starting-style { dialog[open] { scale: .96; } }
+    @supports (overlay: auto) { dialog:not([open]) { scale: .96; } }
+  }
   dialog h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: normal; }
   dialog img { display: block; width: 100%; height: auto; border-radius: 6px; background: #000; image-rendering: auto; }
   dialog .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
@@ -67,9 +79,9 @@
 </head>
 <body>
 <main>
-<canvas id="screen"></canvas>
+<canvas id="screen" role="img" aria-label="Live ASCII rendering of the camera"></canvas>
 <div class="status" id="status">ASCII Mirror · <b id="src">starting camera…</b> · <span id="fps"></span></div>
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status"></div>
 
 <div class="bar" id="bar">
   <label for="charset">Glyphs
@@ -111,7 +123,7 @@
     <button id="dlVideo">Video</button>
     <button id="dlSh">Terminal</button>
     <span style="flex:1"></span>
-    <button id="clipClose">Close</button>
+    <button type="button" id="clipClose" command="close" commandfor="clip">Close</button>
   </div>
   <p id="clipInfo"></p>
   <p>Terminal: run <code>sh ascii-clip.sh</code> in any terminal 80 columns wide; Ctrl-C stops it.</p>
@@ -410,8 +422,16 @@ $('rec').onclick = startRecording;
 $('dlGif').onclick = () => saveBlob(lastClip.gif, 'ascii-clip.gif');
 $('dlVideo').onclick = () => saveBlob(lastClip.video, `ascii-clip.${lastClip.video.type.includes('mp4') ? 'mp4' : 'webm'}`);
 $('dlSh').onclick = () => saveBlob(lastClip.sh, 'ascii-clip.sh');
-$('clipClose').onclick = () => $('clip').close();
-if (!('closedBy' in HTMLDialogElement.prototype)) $('clip').addEventListener('click', e => { if (e.target !== $('clip')) return; const r = e.target.getBoundingClientRect(); if (e.clientY < r.top || e.clientY > r.bottom || e.clientX < r.left || e.clientX > r.right) e.target.close(); });
+// Close is declarative (command="close"); this is the fallback for browsers without Invoker Commands
+if (!('commandForElement' in HTMLButtonElement.prototype)) $('clipClose').onclick = () => $('clip').close();
+// Light dismiss where closedby is missing (Safari). Press and release must both land outside,
+// so a text-selection drag that ends on the backdrop doesn't close the dialog
+if (!('closedBy' in HTMLDialogElement.prototype)) {
+  const outside = e => { const r = $('clip').getBoundingClientRect(); return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom; };
+  let pressedOutside = false;
+  $('clip').addEventListener('pointerdown', e => { pressedOutside = outside(e); });
+  $('clip').addEventListener('pointerup', e => { if (pressedOutside && outside(e)) $('clip').close(); });
+}
 
 resize(); startCamera(); start();
 </script>

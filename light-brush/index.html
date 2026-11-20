@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Light Brush</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
 <style>
@@ -33,7 +35,7 @@
   button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
   button.primary { background: #c2210b; border-color: #c2210b; color: #fff; font-size: 16px; padding: 14px 22px; }
   .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-  .file:focus-within { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .file:has(input:focus-visible) { outline: 3px solid var(--acc); outline-offset: 2px; } /* keyboard focus only, not after a click */
   :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   .preview { background: #000; border: 3px solid var(--line); padding: 16px; display: grid; place-items: center; min-height: 240px; }
   .preview canvas { max-width: 100%; height: auto; display: block; }
@@ -56,8 +58,8 @@
   /* Touch baseline (same as the other pages) */
   html { -webkit-tap-highlight-color: transparent; }
   button, a, .file { touch-action: manipulation; }
-  button { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active { transform: scale(.97); }
+  button, .file { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+  button:active, .file:active { transform: scale(.97); }
   @media (pointer: coarse) { input, select { font-size: 16px !important; } button, .file { min-block-size: 44px; } }
 </style>
 </head>

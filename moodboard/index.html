@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#e9e6df">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Moodboard</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&family=Playfair+Display:wght@700&family=Lora&family=Cormorant+Garamond:wght@600&family=Inter&family=Fraunces:wght@700&family=Work+Sans&family=Syne:wght@800&family=IBM+Plex+Sans&family=DM+Serif+Display&family=DM+Sans&display=swap">
 <style>
@@ -188,7 +190,7 @@ const PAIRS = [
   { name: 'Cool vivid', head: 'Syne', hw: 800, body: 'IBM Plex Sans', t: { L: 55, C: 32, W: -6 } },
   { name: 'Quiet editorial', head: 'DM Serif Display', hw: 400, body: 'DM Sans', t: { L: 62, C: 12, W: 0 } },
 ];
-const rankPairs = p => [...PAIRS].sort((a, b) => score(a, p) - score(b, p));
+const rankPairs = p => PAIRS.toSorted((a, b) => score(a, p) - score(b, p));
 const score = (x, p) => ((x.t.L - p.L) / 30) ** 2 + ((x.t.C - p.C) / 20) ** 2 + ((x.t.W - p.W) / 15) ** 2;
 
 // Poster roles: background = dominant colour; ink = best contrast with it; accent = most colourful of the rest
