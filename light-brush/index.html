@@ -7,19 +7,13 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Light Brush</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../lab.css">
 <style>
   /* Layout: setup (controls beside a preview of what the camera will catch); Run covers the screen in black and plays the image one slice at a time */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed;
-          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; color-scheme: dark; }
-  }
   body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); font-size-adjust: from-font; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 32px max(16px, 3vw) 72px; display: grid; gap: 32px;
           grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
   @media (max-width: 860px) { .wrap { grid-template-columns: minmax(0, 1fr); } }
-  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
   h1 { font: 400 clamp(52px, 8vw, 104px)/.85 var(--display); font-size-adjust: cap-height from-font; text-transform: uppercase; margin: 14px 0 12px; }
   h1 span { color: var(--acc); }
   .lede { color: var(--dim); margin: 0 0 22px; }
@@ -29,14 +23,12 @@
   .seg { display: flex; flex-wrap: wrap; gap: 6px; }
   input[type=text], select { font: 14px var(--mono); color: var(--fg); background: var(--field); border: 2px solid var(--line); padding: 8px 10px; border-radius: 0; min-width: 0; }
   input[type=range] { width: 100%; accent-color: var(--acc); }
-  button, .file { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
-           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; display: inline-block; }
-  @media (hover: hover) and (pointer: fine) { button:hover, .file:hover { background: var(--fg); color: var(--bg); } }
-  button[aria-pressed=true] { background: var(--fg); color: var(--bg); }
-  button.primary { background: #c2210b; border-color: #c2210b; color: #fff; font-size: 16px; padding: 14px 22px; }
+  button, .btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
+  @media (hover: hover) and (pointer: fine) { button:hover, .btn:hover { background: var(--fg); color: var(--bg); } }
+  button.primary { font-size: 16px; padding: 14px 22px; }
   .file input { position: absolute; width: 1px; height: 1px; opacity: 0; }
-  .file:has(input:focus-visible) { outline: 3px solid var(--acc); outline-offset: 2px; } /* keyboard focus only, not after a click */
-  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+  .file:has(input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; } /* keyboard focus only, not after a click */
   .preview { background: #000; border: 3px solid var(--line); padding: 16px; display: grid; place-items: center; min-height: 240px; }
   .preview canvas { max-width: 100%; height: auto; display: block; }
   .facts { color: var(--dim); font-size: 12px; margin: 10px 0 0; }
@@ -55,12 +47,6 @@
   #runhint { margin: 0; color: #b8b5ae; font-size: 12px; pointer-events: none; }
   #run.sweeping #runhint { visibility: hidden; }
   #run.sweeping #stop:not(:focus-visible) { opacity: 0; }
-  /* Touch baseline (same as the other pages) */
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a, .file { touch-action: manipulation; }
-  button, .file { -webkit-user-select: none; user-select: none; transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active, .file:active { transform: scale(.97); }
-  @media (pointer: coarse) { input, select { font-size: 16px !important; } button, .file { min-block-size: 44px; } }
 </style>
 </head>
 <body>
@@ -73,7 +59,7 @@
     <fieldset><legend>Paint</legend><div class="seg" id="source"></div></fieldset>
     <label id="textrow">Text <input type="text" id="text" value="HELLO" maxlength="32"></label>
     <label id="colorrow">Colour <select id="color"><option value="white">White</option><option value="red">Red</option><option value="rainbow">Rainbow</option></select></label>
-    <div id="filerow" hidden><label class="file">Choose image<input type="file" id="file" accept="image/*"></label><p class="facts">Stays on this device.</p></div>
+    <div id="filerow" hidden><label class="file btn">Choose image<input type="file" id="file" accept="image/*"></label><p class="facts">Stays on this device.</p></div>
     <label>Sweep time <span id="durv"></span><input type="range" id="dur" min="2" max="15" step="1" value="6"></label>
     <label>Brush width <span id="bandv"></span><input type="range" id="band" min="5" max="100" step="5" value="40"></label>
     <label>Brightness <span id="brightv"></span><input type="range" id="bright" min="10" max="100" step="5" value="100"></label>

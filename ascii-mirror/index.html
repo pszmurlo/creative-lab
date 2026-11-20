@@ -38,6 +38,8 @@
   input[type=range] { accent-color: var(--accent); width: 90px; }
   .status { position: fixed; top: calc(14px + env(safe-area-inset-top)); left: calc(16px + env(safe-area-inset-left)); padding: 4px 8px; border-radius: 6px; background: var(--panel); color: var(--dim); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; pointer-events: none; }
   .status b { color: var(--accent); font-weight: normal; }
+  .status a.home { color: var(--fg); text-decoration: none; pointer-events: auto; }
+  @media (hover: hover) and (pointer: fine) { .status a.home:hover { color: var(--accent); } }
   .toast { position: fixed; top: calc(14px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right)); color: var(--accent); font-size: 12px; opacity: 0; transform: translateY(-6px); transition: opacity 400ms ease, transform 400ms ease; }
   .toast.show { opacity: 1; transform: none; }
   .status.rec { color: #ff5a4a; }
@@ -80,7 +82,7 @@
 <body>
 <main>
 <canvas id="screen" role="img" aria-label="Live ASCII rendering of the camera"></canvas>
-<div class="status" id="status">ASCII Mirror · <b id="src">starting camera…</b> · <span id="fps"></span></div>
+<div class="status" id="status"><a class="home" href="../">← Creative Lab</a> · ASCII Mirror · <b id="src">starting camera…</b> · <span id="fps"></span></div>
 <div class="toast" id="toast" role="status"></div>
 
 <div class="bar" id="bar">

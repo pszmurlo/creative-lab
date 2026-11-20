@@ -1,0 +1,60 @@
+/* Creative Lab: shared tokens and baseline for every experiment.
+   Linked before each page's own <style>, so any page rule of equal specificity wins.
+   ASCII Mirror and Desk Display keep their own look and don't link this file. */
+
+/* ---------- Tokens ---------- */
+:root {
+  --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --field: #f4f2ed;
+  --acc: #ff3b1f;        /* decoration: the h1 dot, fills, large marks */
+  --acc-text: #c2210b;   /* red that passes as text (4.79:1 on --bg) */
+  --focus: #c2210b;      /* focus ring: the brighter --acc is only 2.86:1 on paper */
+  --primary: #c2210b;    /* primary button fill in both themes; white on it is 5.97:1 */
+  --display: "Anton", Impact, sans-serif;
+  --mono: "Space Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --field: #1e1e1c;
+          --acc-text: #ff6248; --focus: #ff3b1f; color-scheme: dark; }
+}
+
+/* ---------- Base ---------- */
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+:where(a) { color: inherit; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* "← Creative Lab": a full-height touch target, not 17px of text */
+.back { display: inline-flex; align-items: center; min-block-size: 24px; color: var(--dim); text-decoration: none;
+        font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+@media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
+
+/* ---------- Buttons ---------- */
+button, .btn { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
+               border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
+/* Links and labels styled as buttons centre their text like <button> does, and padding counts inside the 44px */
+.btn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: .5em; text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { button:hover, .btn:hover { background: var(--fg); color: var(--bg); } }
+button[aria-pressed=true] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+/* One primary across the lab: red fill, white text (5.97:1) */
+button.primary, .btn.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+@media (hover: hover) and (pointer: fine) { button.primary:hover, .btn.primary:hover { background: var(--fg); border-color: var(--fg); color: var(--bg); } }
+
+/* ---------- Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom ---------- */
+html { -webkit-tap-highlight-color: transparent; }
+button, a, .btn, summary { touch-action: manipulation; }
+button, .btn, summary { -webkit-user-select: none; user-select: none; }
+button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
+button:active, .btn:active { transform: scale(.97); }
+button:disabled, .btn[aria-disabled=true] { opacity: .4; cursor: not-allowed; pointer-events: none; }
+@media (pointer: coarse) {
+  input, select, textarea { font-size: 16px !important; }
+  /* 44px for everything a thumb aims at, not only buttons */
+  button, .btn, select, summary, .back { min-block-size: 44px; }
+  /* Text inputs are content-box by default, so padding and border would add to the 44px */
+  input:not([type=checkbox], [type=radio], [type=range], [type=file], [type=hidden], [type=color]) { min-block-size: 44px; box-sizing: border-box; }
+  input[type=range] { min-block-size: 44px; }
+  :where(label:has(> input[type=checkbox], > input[type=radio])) { min-block-size: 44px; display: flex; align-items: center; gap: 8px; }
+}
+
+/* Keyboard shortcut hints mean nothing on touch */
+@media (hover: none) { .kbd-hint { display: none; } }

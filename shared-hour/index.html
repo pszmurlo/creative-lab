@@ -7,17 +7,12 @@
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#151514">
 <title>Shared Hour</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Mono:wght@400;700&display=swap">
+<link rel="stylesheet" href="../lab.css">
 <style>
   /* Layout: the dial (24-hour clock with one ring per person) beside the list of people; stacks on narrow screens */
-  :root { --bg: #e9e6df; --fg: #111; --dim: #57544f; --line: #111; --acc: #ff3b1f; --acc-text: #c2210b; --field: #f4f2ed; --sleep: rgb(17 17 17 / .08);
-          --display: "Anton", Impact, sans-serif; --mono: "Space Mono", ui-monospace, Menlo, monospace; color-scheme: light; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #151514; --fg: #f2f0eb; --dim: #8d8a83; --line: #f2f0eb; --acc-text: #ff6248; --field: #1e1e1c; --sleep: rgb(242 240 235 / .08); color-scheme: dark; }
-  }
-  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--mono); }
+  :root { --sleep: rgb(17 17 17 / .08); }
+  @media (prefers-color-scheme: dark) { :root { --sleep: rgb(242 240 235 / .08); } }
   .wrap { max-width: 1240px; margin: 0 auto; padding: 32px max(16px, 3vw) 64px; }
-  .back { color: var(--dim); text-decoration: none; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
-  @media (hover: hover) and (pointer: fine) { .back:hover { color: var(--acc-text); } }
   header { border-bottom: 3px solid var(--line); padding-bottom: 16px; margin: 14px 0 24px; display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: end; justify-content: space-between; }
   h1 { font: 400 clamp(56px, 10vw, 124px)/.85 var(--display); text-transform: uppercase; margin: 0; }
   h1 span { color: var(--acc); }
@@ -42,27 +37,15 @@
   .now { font-size: 12px; color: var(--dim); white-space: nowrap; }
   .now b { color: var(--fg); }
   button { font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--fg); background: none;
-           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; min-block-size: 24px; }
+           border: 2px solid var(--line); padding: 8px 12px; cursor: pointer; }
   @media (hover: hover) and (pointer: fine) { button:hover { background: var(--fg); color: var(--bg); } }
   button.x { padding: 2px 8px; border-width: 1px; }
   .tools { display: flex; flex-wrap: wrap; gap: 8px; }
-  :focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
   .summary { font-size: 13px; margin: 16px 0 0; color: var(--dim); }
   .summary b { color: var(--fg); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
-  /* Touch baseline: no tap flash, no double-tap delay, press feedback, no iOS input zoom */
-  html { -webkit-tap-highlight-color: transparent; }
-  button, a, .btn, summary { touch-action: manipulation; }
-  button, .btn, summary { -webkit-user-select: none; user-select: none; }
-  button, .btn { transition: transform 160ms cubic-bezier(.23, 1, .32, 1); }
-  button:active, .btn:active { transform: scale(.97); }
-  button:disabled { opacity: .4; cursor: not-allowed; pointer-events: none; }
-  @media (pointer: coarse) {
-    input, select, textarea { font-size: 16px !important; }
-    button, .btn { min-block-size: 44px; }
-    button.x { min-inline-size: 44px; }
-  }
+  @media (pointer: coarse) { button.x { min-inline-size: 44px; } }
 </style>
 </head>
 <body>
